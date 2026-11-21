@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db, init_db
 from app.models import PriceHistory, Product
+from app.notifier import send_dashboard_summary_email
 from app.scraper import fetch_product_price, inspect_product_page
 from app.worker import run_worker
 
 DASHBOARD_HTML_PATH = Path(__file__).parent / "static" / "dashboard.html"
+FAVICON_PATH = Path(__file__).parent / "static" / "favicon.svg"
 
 
 @asynccontextmanager
@@ -116,6 +118,15 @@ def serve_dashboard():
     if DASHBOARD_HTML_PATH.exists():
         return FileResponse(DASHBOARD_HTML_PATH)
     return HTMLResponse("<h1>Dashboard UI file not found</h1>", status_code=404)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.svg", include_in_schema=False)
+def serve_favicon():
+    """Serve the application favicon."""
+    if FAVICON_PATH.exists():
+        return FileResponse(FAVICON_PATH, media_type="image/svg+xml")
+    return HTMLResponse("", status_code=204)
 
 
 @app.post("/api/test-link", response_model=LinkTestResponse, tags=["Scraper"])
@@ -300,7 +311,9 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     tags=["Worker"],
     summary="Trigger worker run manually",
 )
-def trigger_worker_run():
-    """Manually invoke the price scraping and alerting worker."""
+def trigger_worker_run(db: Session = Depends(get_db)):
+    """Manually invoke the price scraping worker, check drops, and send summary email."""
     summary = run_worker()
-    return {"status": "completed", "summary": summary}
+    products = db.query(Product).order_by(Product.id.asc()).all()
+    email_sent = send_dashboard_summary_email(products)
+    return {"status": "completed", "summary": summary, "email_sent": email_sent}

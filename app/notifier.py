@@ -142,3 +142,108 @@ def send_price_drop_alert(
     except Exception as exc:
         logger.error("Failed to send price drop email for '%s': %s", product_name, str(exc))
         return False
+
+
+def send_dashboard_summary_email(
+    products: list,
+    recipient_email: Optional[str] = None,
+) -> bool:
+    """
+    Send a full status summary email table of all currently tracked products
+    whenever 'Check Prices Now' is manually invoked.
+    """
+    to_email = recipient_email or ALERT_RECIPIENT_EMAIL
+    api_key = os.getenv("RESEND_API_KEY")
+
+    if not api_key or api_key.startswith("re_123456789") or not to_email:
+        logger.warning("Resend credentials not configured. Skipping summary email.")
+        return False
+
+    resend.api_key = api_key
+
+    table_rows = ""
+    for p in products:
+        curr = getattr(p, "currency", "Rs. ") or "Rs. "
+        is_deal = p.current_price is not None and p.current_price <= p.target_price
+        badge = (
+            '<span style="background: #15370D; color: #FFF2B4; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 11px;">🔥 Drop Alert!</span>'
+            if is_deal
+            else '<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 12px; font-size: 11px;">Monitoring</span>'
+        )
+        current_str = f"<strong>{curr}{p.current_price:,.2f}</strong>" if p.current_price is not None else '<span style="color: #94a3b8; font-style: italic;">Not fetched</span>'
+        target_str = f"{curr}{p.target_price:,.2f}"
+
+        table_rows += f"""
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 12px 14px; vertical-align: top;">
+            <a href="{p.url}" target="_blank" style="color: #15370D; font-weight: 600; text-decoration: none; font-size: 14px; display: block; margin-bottom: 3px;">
+              {p.name}
+            </a>
+            <span style="color: #728E6D; font-size: 11px; word-break: break-all;">{p.url[:60]}...</span>
+          </td>
+          <td style="padding: 12px 14px; vertical-align: top; font-size: 14px; color: {'#15370D' if is_deal else '#1e293b'};">
+            {current_str}
+          </td>
+          <td style="padding: 12px 14px; vertical-align: top; font-size: 14px; color: #64748b;">
+            {target_str}
+          </td>
+          <td style="padding: 12px 14px; vertical-align: top;">
+            {badge}
+          </td>
+        </tr>
+        """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Price Tracker - Live Check Report</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+      <div style="max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+        <div style="background-color: #15370D; padding: 24px; color: #ffffff; border-bottom: 3px solid #E5CD82;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #FFF2B4; letter-spacing: -0.3px;">PriceDrop Radar &bull; Live Price Check Report</h1>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #E5CD82;">Here is the instant snapshot of all {len(products)} tracked items from your latest manual price check.</p>
+        </div>
+
+        <div style="padding: 20px;">
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">
+                  <th style="padding: 10px 14px;">Product</th>
+                  <th style="padding: 10px 14px;">Current</th>
+                  <th style="padding: 10px 14px;">Target</th>
+                  <th style="padding: 10px 14px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {table_rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="background-color: #f1f5f9; padding: 14px 24px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
+          Sent by PriceDrop Radar via Resend &bull; 100% Free-Tier Architecture
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    params: resend.Emails.SendParams = {
+        "from": SENDER_EMAIL,
+        "to": [to_email],
+        "subject": "📊 Price Tracker - Check Prices Now Live Report",
+        "html": html,
+    }
+
+    try:
+        response = resend.Emails.send(params)
+        logger.info("Summary report email sent successfully. Response: %s", response)
+        return True
+    except Exception as exc:
+        logger.error("Failed to send summary report email: %s", str(exc))
+        return False

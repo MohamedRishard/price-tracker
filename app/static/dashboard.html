@@ -4,45 +4,67 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PriceDrop Radar &bull; Production Backend Dashboard</title>
-  <!-- Tailwind CSS -->
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico">
+
+  <!-- Tailwind CSS with Custom Palette Configuration -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest: '#15370D',
+            sage: '#728E6D',
+            gold: '#E5CD82',
+            cream: '#FFF2B4',
+            bgsoft: '#FAF8F2'
+          }
+        }
+      }
+    }
+  </script>
+
   <!-- Chart.js for Price History -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .glass { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(12px); }
+    .glass { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(12px); }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+<body class="bg-bgsoft text-slate-900 min-h-screen flex flex-col antialiased">
 
-  <!-- Top Navigation -->
-  <header class="sticky top-0 z-30 glass border-b border-slate-200/80 shadow-xs">
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-30 glass border-b border-sage/30 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+        <div class="h-10 w-10 rounded-xl bg-forest flex items-center justify-center text-gold shadow-md shadow-forest/20 border border-gold/40">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         </div>
         <div>
-          <span class="text-lg font-bold tracking-tight text-slate-900">PriceDrop<span class="text-emerald-600 font-extrabold">Radar</span></span>
+          <span class="text-lg font-bold tracking-tight text-forest">PriceDrop<span class="text-sage font-extrabold">Radar</span></span>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- Run Worker Button -->
-        <button id="btnRunWorker" onclick="triggerWorkerRun()" class="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition duration-150 border border-slate-200">
-          <svg id="workerIcon" class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Check Prices Now (Triggers Scraping + Email Snapshot) -->
+        <button id="btnRunWorker" onclick="triggerWorkerRun()" class="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-lg bg-cream/70 hover:bg-cream text-forest transition duration-150 border border-gold/60 shadow-xs">
+          <svg id="workerIcon" class="w-4 h-4 text-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           <span id="workerBtnText">Check Prices Now</span>
         </button>
 
-        <!-- Add Product Button -->
-        <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/30 transition duration-150">
+        <!-- Track With Link Button -->
+        <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-forest hover:bg-forest/90 text-cream shadow-sm shadow-forest/30 transition duration-150 border border-gold/50">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
           </svg>
@@ -57,59 +79,59 @@
 
     <!-- KPI Metric Cards (Clean 3-Card Layout) -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+      <div class="bg-white rounded-2xl p-5 border border-sage/20 shadow-xs hover:border-gold/50 transition">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tracked Items</span>
-          <span class="p-2 rounded-xl bg-blue-50 text-blue-600">
+          <span class="text-xs font-semibold text-sage uppercase tracking-wider">Tracked Items</span>
+          <span class="p-2 rounded-xl bg-cream/70 text-forest border border-gold/30">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
           </span>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
-          <span id="kpiTotal" class="text-3xl font-extrabold text-slate-900">0</span>
-          <span class="text-xs text-slate-500">products</span>
+          <span id="kpiTotal" class="text-3xl font-extrabold text-forest">0</span>
+          <span class="text-xs text-slate-500">products active</span>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+      <div class="bg-white rounded-2xl p-5 border border-gold/40 shadow-xs hover:border-forest/40 transition">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Drop Alerts Triggered</span>
-          <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+          <span class="text-xs font-semibold text-sage uppercase tracking-wider">Drop Alerts Triggered</span>
+          <span class="p-2 rounded-xl bg-forest text-cream border border-gold/50">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
           </span>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
-          <span id="kpiAlerts" class="text-3xl font-extrabold text-emerald-600">0</span>
+          <span id="kpiAlerts" class="text-3xl font-extrabold text-forest">0</span>
           <span class="text-xs text-slate-500">deals below target</span>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+      <div class="bg-white rounded-2xl p-5 border border-sage/20 shadow-xs hover:border-gold/50 transition">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Monitoring</span>
-          <span class="p-2 rounded-xl bg-violet-50 text-violet-600">
+          <span class="text-xs font-semibold text-sage uppercase tracking-wider">Active Monitoring</span>
+          <span class="p-2 rounded-xl bg-sage/15 text-forest border border-sage/30">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </span>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
-          <span id="kpiActive" class="text-3xl font-extrabold text-slate-900">0</span>
+          <span id="kpiActive" class="text-3xl font-extrabold text-forest">0</span>
           <span class="text-xs text-slate-500">polling every 6h</span>
         </div>
       </div>
     </div>
 
     <!-- Product Controls & Search -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-      <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <!-- Filters (Removed Deals Only) -->
+    <div class="bg-white rounded-2xl border border-sage/20 shadow-xs overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-sage/15 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <!-- Filters -->
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <button onclick="setFilter('all')" id="filterAll" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xs">All Items</button>
-          <button onclick="setFilter('active')" id="filterActive" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">Active Only</button>
+          <button onclick="setFilter('all')" id="filterAll" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-forest text-cream shadow-xs transition">All Items</button>
+          <button onclick="setFilter('active')" id="filterActive" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-cream/60 text-forest hover:bg-cream border border-gold/40 transition">Active Only</button>
         </div>
 
-        <!-- Search -->
+        <!-- Search Input -->
         <div class="relative w-full sm:w-72">
-          <input type="text" id="searchInput" oninput="renderTable()" placeholder="Search tracked items..." class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50">
-          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <input type="text" id="searchInput" oninput="renderTable()" placeholder="Search tracked items..." class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60">
+          <svg class="w-4 h-4 text-sage absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
         </div>
@@ -118,7 +140,7 @@
       <!-- Products Table -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
-          <thead class="bg-slate-50/75 text-slate-500 font-semibold border-b border-slate-200/80 text-xs uppercase tracking-wider">
+          <thead class="bg-bgsoft text-forest font-semibold border-b border-sage/20 text-xs uppercase tracking-wider">
             <tr>
               <th class="py-3.5 px-4 sm:px-6">Product</th>
               <th class="py-3.5 px-4">Current Price</th>
@@ -135,52 +157,22 @@
 
       <!-- Empty State -->
       <div id="emptyState" class="hidden text-center py-16 px-4">
-        <div class="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+        <div class="mx-auto h-12 w-12 rounded-full bg-cream/70 flex items-center justify-center text-forest mb-3 border border-gold/40">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
         </div>
-        <h3 class="text-base font-bold text-slate-800">No tracked products found</h3>
-        <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Paste any product URL to automatically detect its price and start tracking.</p>
-        <button onclick="openAddModal()" class="mt-4 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 shadow-sm">Track First Product</button>
+        <p class="text-base font-semibold text-forest">No products found</p>
+        <p class="text-xs text-slate-500 mt-1">Paste a product link using the "Track With Link" button above to get started.</p>
       </div>
     </div>
   </main>
 
-  <!-- Floating Stores Icon & Menu in Bottom-Left -->
-  <div class="fixed bottom-5 left-5 z-40">
-    <!-- Flyout Menu Panel -->
-    <div id="storesMenu" class="hidden mb-3 w-72 bg-white rounded-2xl p-4 shadow-2xl border border-slate-200 transition-all transform origin-bottom-left">
-      <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
-        <div class="flex items-center gap-2">
-          <span class="p-1 rounded-md bg-emerald-50 text-emerald-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-          </span>
-          <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Web Stores</span>
-        </div>
-        <button onclick="toggleStoresMenu()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <p class="text-[11px] text-slate-400 mt-1 mb-2.5">Jump directly to the home pages of all stores in your monitoring watchlist:</p>
-      <div id="storesList" class="space-y-1 max-h-64 overflow-y-auto">
-        <!-- Dynamic store links -->
-      </div>
-    </div>
-
-    <!-- Floating Trigger Button -->
-    <button onclick="toggleStoresMenu()" id="btnStoresToggle" title="View Tracked Web Stores" class="h-12 w-12 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 border border-slate-700/60">
-      <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Add Product Modal (No CSS Selector Input) -->
-  <div id="addModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 transform transition-all">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+  <!-- Add Product Modal -->
+  <div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-sage/20 relative animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-4 border-b border-sage/15">
         <div>
-          <h3 class="text-lg font-bold text-slate-900">Track Product With Link</h3>
-          <p class="text-xs text-slate-500">Paste any product link — price and title are auto-detected</p>
+          <h3 class="text-lg font-bold text-forest">Track New Product</h3>
+          <p class="text-xs text-slate-500">Paste any store link and we will automatically detect the price and currency.</p>
         </div>
         <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -188,50 +180,53 @@
       </div>
 
       <form id="addProductForm" onsubmit="handleCreateProduct(event)" class="mt-4 space-y-4">
-        <!-- URL Input + Test Button -->
+        <!-- URL Input -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Page Link</label>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Page URL *</label>
           <div class="flex gap-2">
-            <input type="url" id="addUrl" required placeholder="https://store.com/item/123" class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-            <button type="button" onclick="testLinkLive('add')" id="btnTestLink" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition">
-              <svg id="testLinkIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              <span id="testLinkText">Test Link</span>
+            <input type="url" id="addUrl" required placeholder="https://..." class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60">
+            <button type="button" onclick="testLinkLive('add')" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cream/70 hover:bg-cream text-forest border border-gold/50 transition">
+              Verify Link
             </button>
           </div>
+          <!-- Live Test Result Banner -->
           <div id="testResultBanner" class="hidden mt-2 p-3 rounded-lg text-xs font-medium"></div>
         </div>
 
-        <!-- Product Name -->
+        <!-- Title / Label -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
-          <input type="text" id="addName" required placeholder="e.g. Three Blade Manual Chopper" class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
+          <input type="text" id="addName" required placeholder="Auto-detected or custom title" class="w-full px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60">
         </div>
 
-        <!-- Target Alert Price -->
+        <!-- Target Threshold -->
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider" id="addTargetLabel">Target Price Threshold</label>
-            <span id="detectedPriceLabel" class="text-xs text-emerald-600 font-semibold hidden"></span>
+            <label id="targetLabel" class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Target Price Threshold *</label>
+            <span id="detectedPriceLabel" class="text-xs text-forest font-bold hidden"></span>
           </div>
-          <input type="number" step="0.01" min="0.01" id="addTargetPrice" required placeholder="e.g. 500.00" class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-          <p class="text-xs text-slate-400 mt-1">Alert fires when the price drops to or below this threshold.</p>
+          <input type="number" id="addTargetPrice" step="0.01" min="0.01" required placeholder="Alert when price drops to or below this..." class="w-full px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60 font-medium">
+          <p class="text-[11px] text-slate-500 mt-1">Defaults to 5% below currently detected price.</p>
         </div>
 
-        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
-          <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" id="btnSubmitAdd" class="px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">Start Tracking</button>
+        <!-- Action Buttons -->
+        <div class="pt-2 flex items-center justify-end gap-3 border-t border-sage/15">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+          <button type="submit" id="btnSubmitAdd" class="px-5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest/90 text-cream border border-gold/50 shadow-sm transition">
+            Start Tracking
+          </button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Edit Product Modal -->
-  <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 transform transition-all">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+  <div id="editModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-sage/20 relative animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-4 border-b border-sage/15">
         <div>
-          <h3 class="text-lg font-bold text-slate-900">Edit Tracked Product</h3>
-          <p class="text-xs text-slate-500">Update target threshold or product details</p>
+          <h3 class="text-lg font-bold text-forest">Edit Tracking Settings</h3>
+          <p class="text-xs text-slate-500">Update your target threshold or pause price checks.</p>
         </div>
         <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -241,95 +236,133 @@
       <form id="editProductForm" onsubmit="handleUpdateProduct(event)" class="mt-4 space-y-4">
         <input type="hidden" id="editProductId">
 
-        <!-- Product Page Link (with re-test capability) -->
+        <!-- URL Input -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Page Link</label>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Page URL</label>
           <div class="flex gap-2">
-            <input type="url" id="editUrl" required class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50">
-            <button type="button" onclick="testLinkLive('edit')" id="btnEditTestLink" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200">
-              Check
+            <input type="url" id="editUrl" required class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60">
+            <button type="button" onclick="testLinkLive('edit')" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cream/70 hover:bg-cream text-forest border border-gold/50 transition">
+              Verify Link
             </button>
           </div>
           <div id="editTestResultBanner" class="hidden mt-2 p-3 rounded-lg text-xs font-medium"></div>
         </div>
 
-        <!-- Product Title -->
+        <!-- Title -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
-          <input type="text" id="editName" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
+          <input type="text" id="editName" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60">
         </div>
 
-        <!-- Target Alert Price -->
+        <!-- Target Threshold -->
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider" id="editTargetLabel">Target Price Threshold</label>
-            <span id="editCurrentPriceLabel" class="text-xs text-slate-500 font-semibold"></span>
+            <label id="editTargetLabel" class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Target Price Threshold</label>
+            <span id="editCurrentPriceLabel" class="text-xs text-forest font-bold"></span>
           </div>
-          <input type="number" step="0.01" min="0.01" id="editTargetPrice" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-          <p class="text-xs text-slate-400 mt-1">Alert triggers when the price drops to or below this amount.</p>
+          <input type="number" id="editTargetPrice" step="0.01" min="0.01" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-sage/30 focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest bg-bgsoft/60 font-medium">
         </div>
 
-        <!-- Monitoring Active Toggle -->
+        <!-- Active Toggle -->
         <div class="flex items-center gap-2 pt-1">
-          <input type="checkbox" id="editIsActive" class="w-4 h-4 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-500">
-          <label for="editIsActive" class="text-sm font-semibold text-slate-700">Active Monitoring (Check every 6 hours)</label>
+          <input type="checkbox" id="editIsActive" class="w-4 h-4 text-forest focus:ring-forest border-sage/40 rounded">
+          <label for="editIsActive" class="text-xs font-semibold text-slate-700">Active monitoring enabled</label>
         </div>
 
-        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
-          <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" id="btnSubmitEdit" class="px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">Save Changes</button>
+        <!-- Action Buttons -->
+        <div class="pt-2 flex items-center justify-end gap-3 border-t border-sage/15">
+          <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+          <button type="submit" id="btnSubmitEdit" class="px-5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest/90 text-cream border border-gold/50 shadow-sm transition">
+            Save Changes
+          </button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Price History Modal -->
-  <div id="historyModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+  <!-- Price History Chart Modal -->
+  <div id="historyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-sage/20 relative animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-4 border-b border-sage/15">
         <div>
-          <h3 id="historyModalTitle" class="text-lg font-bold text-slate-900">Price History</h3>
-          <p id="historyModalSub" class="text-xs text-slate-500">Recorded price points over time</p>
+          <h3 id="historyModalTitle" class="text-lg font-bold text-forest">Price History</h3>
+          <p id="historyModalSub" class="text-xs text-slate-500"></p>
         </div>
         <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      <!-- Chart Container -->
-      <div class="py-4">
-        <div class="h-56 w-full">
+      <div class="mt-4">
+        <div class="h-64 w-full">
           <canvas id="historyChart"></canvas>
         </div>
-      </div>
 
-      <!-- History Table Container -->
-      <div class="flex-1 overflow-y-auto border-t border-slate-100 pt-3">
-        <table class="w-full text-left text-xs">
-          <thead class="text-slate-400 uppercase font-bold sticky top-0 bg-white">
-            <tr>
-              <th class="pb-2">Timestamp (UTC)</th>
-              <th class="pb-2">Recorded Price</th>
-              <th class="pb-2 text-right">Trend</th>
-            </tr>
-          </thead>
-          <tbody id="historyTableBody" class="divide-y divide-slate-100 text-slate-700">
-            <!-- Dynamic rows -->
-          </tbody>
-        </table>
+        <!-- History Records Table -->
+        <div class="mt-4 max-h-48 overflow-y-auto rounded-lg border border-sage/20">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-bgsoft text-forest uppercase font-semibold sticky top-0 border-b border-sage/20">
+              <tr>
+                <th class="py-2 px-3">Timestamp (UTC)</th>
+                <th class="py-2 px-3 text-right">Recorded Price</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <!-- Floating Bottom-Left Web Stores Navigation -->
+  <div class="fixed bottom-6 left-6 z-40">
+    <!-- Popover Menu -->
+    <div id="storesMenu" class="hidden mb-3 w-64 bg-white rounded-2xl shadow-xl border border-sage/30 overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-150">
+      <div class="p-3.5 bg-forest text-cream border-b border-gold/40 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+          <span class="text-xs font-bold uppercase tracking-wider text-cream">Monitored Stores</span>
+        </div>
+        <span id="storeCountBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cream text-forest">10</span>
+      </div>
+      <div id="storesList" class="p-2 max-h-72 overflow-y-auto space-y-1 divide-y divide-slate-100">
+        <!-- Pinned 10 Core Stores + Dynamic Additions -->
+      </div>
+    </div>
 
-  <!-- JavaScript Application Logic -->
+    <!-- Floating Toggle Button -->
+    <button onclick="toggleStoresMenu()" title="View Monitored Web Stores" class="h-12 w-12 rounded-full bg-forest text-gold hover:bg-forest/90 shadow-lg shadow-forest/30 flex items-center justify-center transition border border-gold/60 focus:outline-none focus:ring-2 focus:ring-gold">
+      <svg class="w-5 h-5 text-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Frontend Logic -->
   <script>
     let products = [];
     let currentFilter = 'all';
     let chartInstance = null;
     let lastDetectedCurrency = 'Rs. ';
+
+    // 10 Fixed Core Monitored Stores (Excluding books.toscrape)
+    const FIXED_CORE_STORES = [
+      { origin: 'https://www.amazon.com', host: 'amazon.com', name: 'Amazon' },
+      { origin: 'https://www.kapruka.com', host: 'kapruka.com', name: 'Kapruka' },
+      { origin: 'https://bigdeals.lk', host: 'bigdeals.lk', name: 'BigDeals' },
+      { origin: 'https://mo.lk', host: 'mo.lk', name: 'Mo.lk' },
+      { origin: 'https://pettahkade.lk', host: 'pettahkade.lk', name: 'The Pettah Kade' },
+      { origin: 'https://ikman.lk', host: 'ikman.lk', name: 'Ikman' },
+      { origin: 'https://takas.lk', host: 'takas.lk', name: 'Takas' },
+      { origin: 'https://ekade.lk', host: 'ekade.lk', name: 'eKade' },
+      { origin: 'https://onlinekade.lk', host: 'onlinekade.lk', name: 'OnlineKade' },
+      { origin: 'https://www.eshop.lk', host: 'eshop.lk', name: 'eShop.lk' }
+    ];
 
     // Dynamic Currency Detection: uses product.currency if available, else detects from store context
     function getCurrencySymbol(item) {
@@ -365,31 +398,29 @@
 
     function updateKpis() {
       document.getElementById('kpiTotal').innerText = products.length;
-      const deals = products.filter(p => p.current_price !== null && p.current_price <= p.target_price);
-      document.getElementById('kpiAlerts').innerText = deals.length;
-      const active = products.filter(p => p.is_active);
-      document.getElementById('kpiActive').innerText = active.length;
+      const deals = products.filter(p => p.current_price !== null && p.current_price <= p.target_price).length;
+      document.getElementById('kpiAlerts').innerText = deals;
+      const active = products.filter(p => p.is_active).length;
+      document.getElementById('kpiActive').innerText = active;
     }
 
     function setFilter(filter) {
       currentFilter = filter;
-      ['all', 'active'].forEach(f => {
-        const btn = document.getElementById('filter' + f.charAt(0).toUpperCase() + f.slice(1));
-        if (f === filter) {
-          btn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xs";
-        } else {
-          btn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200";
-        }
-      });
+      document.getElementById('filterAll').className = filter === 'all'
+        ? 'px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-forest text-cream shadow-xs transition'
+        : 'px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-cream/60 text-forest hover:bg-cream border border-gold/40 transition';
+      document.getElementById('filterActive').className = filter === 'active'
+        ? 'px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-forest text-cream shadow-xs transition'
+        : 'px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-cream/60 text-forest hover:bg-cream border border-gold/40 transition';
       renderTable();
     }
 
     function renderTable() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
       const tbody = document.getElementById('productsTableBody');
       const emptyState = document.getElementById('emptyState');
+      const search = document.getElementById('searchInput').value.toLowerCase();
 
-      let filtered = products.filter(p => {
+      const filtered = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search) || p.url.toLowerCase().includes(search);
         if (!matchesSearch) return false;
         if (currentFilter === 'active') return p.is_active;
@@ -411,28 +442,28 @@
 
         let alertBadge = '';
         if (isDeal) {
-          alertBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 animate-pulse">🔥 Drop Alert Triggered</span>`;
+          alertBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-cream text-forest border border-gold shadow-xs animate-pulse">🔥 Drop Alert!</span>`;
         } else if (p.current_price !== null) {
-          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">Monitoring (${sym}${(p.current_price - p.target_price).toFixed(2)} to target)</span>`;
+          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-bgsoft text-slate-700 border border-sage/20">Monitoring (${sym}${(p.current_price - p.target_price).toFixed(2)} to target)</span>`;
         } else {
-          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">Awaiting initial run</span>`;
+          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">Awaiting initial run</span>`;
         }
 
         const domain = getDomainName(p.url);
 
         return `
-          <tr class="hover:bg-slate-50/75 transition duration-150">
+          <tr class="hover:bg-bgsoft/50 transition duration-150">
             <td class="py-4 px-4 sm:px-6">
-              <div class="font-bold text-slate-900">${escapeHtml(p.name)}</div>
+              <div class="font-bold text-forest">${escapeHtml(p.name)}</div>
               <div class="flex items-center gap-2 mt-0.5">
-                <a href="${escapeHtml(p.url)}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 max-w-xs truncate">
+                <a href="${escapeHtml(p.url)}" target="_blank" class="text-xs text-sage hover:text-forest hover:underline inline-flex items-center gap-1 max-w-xs truncate font-medium">
                   ${domain}
                   <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 </a>
                 ${!p.is_active ? '<span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">Paused</span>' : ''}
               </div>
             </td>
-            <td class="py-4 px-4 font-bold ${isDeal ? 'text-emerald-600 text-base' : 'text-slate-900'}">
+            <td class="py-4 px-4 font-bold ${isDeal ? 'text-forest text-base font-extrabold' : 'text-slate-900'}">
               ${currentDisplay}
             </td>
             <td class="py-4 px-4 text-slate-600 font-semibold">
@@ -444,17 +475,17 @@
             <td class="py-4 px-4 text-right pr-6 whitespace-nowrap">
               <div class="inline-flex items-center gap-1">
                 <!-- Edit Threshold Button -->
-                <button onclick="openEditModal(${p.id})" title="Edit Target Threshold" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                <button onclick="openEditModal(${p.id})" title="Edit Target Threshold" class="p-1.5 rounded-lg text-slate-500 hover:bg-cream/60 hover:text-forest transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                   </svg>
                 </button>
                 <!-- Price History Button -->
-                <button onclick="viewHistory(${p.id})" title="Price History" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                <button onclick="viewHistory(${p.id})" title="Price History" class="p-1.5 rounded-lg text-slate-500 hover:bg-cream/60 hover:text-forest transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
                 </button>
                 <!-- Delete Button -->
-                <button onclick="deleteProduct(${p.id}, '${escapeHtml(p.name)}')" title="Delete Product" class="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600">
+                <button onclick="deleteProduct(${p.id}, '${escapeHtml(p.name)}')" title="Delete Product" class="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
@@ -464,45 +495,62 @@
       }).join('');
     }
 
-    // Dynamic Bottom-Left Stores List Generation
+    // Fixed 10 Stores Navigation + Dynamically Appending New Stores
     function renderStoresMenu() {
       const container = document.getElementById('storesList');
-      if (!products.length) {
-        container.innerHTML = '<div class="text-xs text-slate-400 italic py-2">No stores added yet.</div>';
-        return;
-      }
-
-      // Collect unique home origins
+      const badge = document.getElementById('storeCountBadge');
+      
       const storeMap = new Map();
+
+      // 1. Populate fixed 10 core stores
+      FIXED_CORE_STORES.forEach(s => {
+        storeMap.set(s.origin, {
+          origin: s.origin,
+          host: s.host,
+          name: s.name,
+          count: 0
+        });
+      });
+
+      // 2. Count active tracked items and dynamically add newly discovered stores
       products.forEach(p => {
         try {
+          if (!p.url) return;
           const u = new URL(p.url);
+          // Ignore books.toscrape
+          if (u.hostname.includes('toscrape')) return;
+
           const origin = u.origin;
           const host = u.hostname.replace(/^www\./, '');
-          if (!storeMap.has(origin)) {
+
+          if (storeMap.has(origin)) {
+            storeMap.get(origin).count++;
+          } else {
+            // New store dynamically added!
             storeMap.set(origin, {
               origin: origin,
               host: host,
+              name: host,
               count: 1
             });
-          } else {
-            storeMap.get(origin).count++;
           }
         } catch (e) {}
       });
 
+      badge.innerText = storeMap.size;
+
       container.innerHTML = Array.from(storeMap.values()).map(store => `
-        <a href="${store.origin}" target="_blank" class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 group">
+        <a href="${store.origin}" target="_blank" class="flex items-center justify-between p-2 rounded-xl hover:bg-bgsoft transition border border-transparent hover:border-sage/20 group">
           <div class="flex items-center gap-2.5">
-            <div class="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-700 uppercase">
+            <div class="w-6 h-6 rounded-lg bg-cream flex items-center justify-center text-xs font-bold text-forest uppercase border border-gold/40">
               ${store.host.charAt(0)}
             </div>
             <div>
-              <div class="text-xs font-bold text-slate-800 capitalize group-hover:text-emerald-600 transition">${store.host}</div>
-              <div class="text-[10px] text-slate-400">${store.count} item${store.count > 1 ? 's' : ''} tracked</div>
+              <div class="text-xs font-bold text-forest group-hover:text-sage transition">${store.name || store.host}</div>
+              <div class="text-[10px] text-slate-400">${store.count} item${store.count !== 1 ? 's' : ''} tracked</div>
             </div>
           </div>
-          <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-3.5 h-3.5 text-sage group-hover:text-forest transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
           </svg>
         </a>
@@ -523,6 +571,7 @@
       }
     }
 
+    // Trigger Price Check AND Snapshot Email
     async function triggerWorkerRun() {
       const btn = document.getElementById('btnRunWorker');
       const icon = document.getElementById('workerIcon');
@@ -535,7 +584,8 @@
       try {
         const res = await fetch('/worker/run', { method: 'POST' });
         const data = await res.json();
-        showToast(`Price check finished! Processed: ${data.summary.processed}, Failed: ${data.summary.failed}`, 'success');
+        const emailNotice = data.email_sent ? ' Summary email sent to your inbox!' : '';
+        showToast(`Checked all stores! Processed: ${data.summary.processed}.${emailNotice}`, 'success');
         await loadProducts();
       } catch (err) {
         showToast('Worker execution failed: ' + err.message, 'error');
@@ -559,8 +609,8 @@
         return;
       }
 
-      banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 block";
-      banner.innerText = "Connecting to store and detecting price & title...";
+      banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-bgsoft text-forest border border-sage/30 block";
+      banner.innerText = "Connecting to store and detecting price, currency & title...";
 
       try {
         const res = await fetch('/api/test-link', {
@@ -573,10 +623,10 @@
         lastDetectedCurrency = sym;
 
         if (result.success) {
-          banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 block";
+          banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-cream/70 text-forest border border-gold block";
           banner.innerHTML = `
             <div class="font-bold">✅ Detected Price: ${sym}${result.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-            <div class="mt-0.5 text-slate-600 truncate">Title: ${escapeHtml(result.name)}</div>
+            <div class="mt-0.5 text-slate-700 truncate">Title: ${escapeHtml(result.name)}</div>
           `;
 
           if (!nameInput.value || nameInput.value === 'Tracked Product') {
@@ -600,17 +650,31 @@
       }
     }
 
+    function openAddModal() {
+      document.getElementById('addModal').classList.remove('hidden');
+      document.getElementById('addProductForm').reset();
+      document.getElementById('testResultBanner').classList.add('hidden');
+      document.getElementById('detectedPriceLabel').classList.add('hidden');
+      lastDetectedCurrency = 'Rs. ';
+    }
+
+    function closeAddModal() {
+      document.getElementById('addModal').classList.add('hidden');
+      document.getElementById('addProductForm').reset();
+    }
+
     async function handleCreateProduct(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmitAdd');
       btn.disabled = true;
       btn.innerText = "Saving...";
 
+      const urlVal = document.getElementById('addUrl').value.trim();
       const payload = {
         name: document.getElementById('addName').value.trim(),
-        url: document.getElementById('addUrl').value.trim(),
+        url: urlVal,
         css_selector: 'auto',
-        currency: lastDetectedCurrency || getCurrencySymbol(document.getElementById('addUrl').value.trim()),
+        currency: lastDetectedCurrency || getCurrencySymbol(urlVal),
         target_price: parseFloat(document.getElementById('addTargetPrice').value)
       };
 
@@ -745,34 +809,49 @@
       chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels.length ? labels : ['No Scrapes Yet'],
+          labels: labels,
           datasets: [
             {
-              label: `Scraped Price (${sym.trim()})`,
-              data: prices.length ? prices : [targetPrice],
-              borderColor: '#10b981',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              label: `Price (${sym})`,
+              data: prices,
+              borderColor: '#15370D',
+              backgroundColor: 'rgba(229, 205, 130, 0.2)',
               fill: true,
               tension: 0.3,
+              pointBackgroundColor: '#15370D',
+              pointBorderColor: '#FFF2B4',
               pointRadius: 4,
             },
             {
-              label: `Target Threshold (${sym.trim()})`,
-              data: labels.map(() => targetPrice),
-              borderColor: '#f59e0b',
+              label: `Target (${sym})`,
+              data: Array(labels.length).fill(targetPrice),
+              borderColor: '#E5CD82',
               borderDash: [5, 5],
+              borderWidth: 2,
               pointRadius: 0,
-              fill: false
+              fill: false,
             }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'top' } },
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${sym}${context.parsed.y.toFixed(2)}`;
+                }
+              }
+            }
+          },
           scales: {
             y: {
-              ticks: { callback: v => sym + v }
+              beginAtZero: false,
+              ticks: {
+                callback: function(val) { return sym + val.toLocaleString(); }
+              }
             }
           }
         }
@@ -781,80 +860,57 @@
 
     function renderHistoryTable(history, sym = '$') {
       const tbody = document.getElementById('historyTableBody');
-      if (history.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-400">No price records yet. Run the worker to log the first price.</td></tr>';
+      if (!history.length) {
+        tbody.innerHTML = '<tr><td colspan="2" class="p-3 text-center text-slate-400">No price history recorded yet.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = history.map((h, i) => {
-        let trend = '<span class="text-slate-400">&mdash;</span>';
-        if (i < history.length - 1) {
-          const prev = history[i + 1].price;
-          if (h.price < prev) {
-            trend = `<span class="text-emerald-600 font-bold">&darr; -${sym}${(prev - h.price).toFixed(2)}</span>`;
-          } else if (h.price > prev) {
-            trend = `<span class="text-red-500 font-bold">&uarr; +${sym}${(h.price - prev).toFixed(2)}</span>`;
-          }
-        }
-        return `
-          <tr>
-            <td class="py-2.5 font-mono text-slate-500">${new Date(h.recorded_at).toLocaleString()}</td>
-            <td class="py-2.5 font-bold text-slate-900">${sym}${h.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-            <td class="py-2.5 text-right">${trend}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function openAddModal() {
-      document.getElementById('addModal').classList.remove('hidden');
-      document.getElementById('testResultBanner').classList.add('hidden');
-      document.getElementById('detectedPriceLabel').classList.add('hidden');
-    }
-
-    function closeAddModal() {
-      document.getElementById('addModal').classList.add('hidden');
-      document.getElementById('addProductForm').reset();
+      tbody.innerHTML = history.map(h => `
+        <tr class="hover:bg-bgsoft/70">
+          <td class="py-2 px-3 text-slate-600">${new Date(h.recorded_at).toLocaleString()}</td>
+          <td class="py-2 px-3 text-right font-bold text-forest">${sym}${h.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        </tr>
+      `).join('');
     }
 
     function closeHistoryModal() {
       document.getElementById('historyModal').classList.add('hidden');
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
     }
 
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
-      const bg = type === 'success' ? 'bg-emerald-600 text-white' : type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white';
-      toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg text-sm font-semibold pointer-events-auto transition transform duration-300 translate-y-2 opacity-0 flex items-center gap-2`;
-      toast.innerText = message;
+      
+      const bg = type === 'success' ? 'bg-forest text-cream border-gold/40' : type === 'error' ? 'bg-rose-700 text-white border-rose-800' : 'bg-slate-800 text-white border-slate-700';
+      toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 pointer-events-auto transition duration-200 animate-in fade-in slide-in-from-bottom-2`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
       container.appendChild(toast);
-      requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-      });
+
       setTimeout(() => {
-        toast.classList.add('translate-y-2', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 250);
       }, 4000);
     }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
     }
 
-    // Close flyout menu when clicking outside
-    document.addEventListener('click', function(e) {
-      const menu = document.getElementById('storesMenu');
-      const btn = document.getElementById('btnStoresToggle');
-      if (menu && !menu.classList.contains('hidden')) {
-        if (!menu.contains(e.target) && !btn.contains(e.target)) {
-          menu.classList.add('hidden');
-        }
-      }
-    });
-
-    // Initial Load
-    loadProducts();
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', loadProducts);
   </script>
 </body>
 </html>
