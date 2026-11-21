@@ -18,6 +18,7 @@ class Product(Base):
     css_selector = Column(String(512), nullable=False)
     target_price = Column(Float, nullable=False)
     current_price = Column(Float, nullable=True)
+    currency = Column(String(16), default="Rs. ", nullable=True)
     last_alerted_price = Column(Float, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

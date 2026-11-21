@@ -42,6 +42,9 @@ class ProductBase(BaseModel):
     target_price: float = Field(
         ..., gt=0, description="Target price threshold below which an alert is triggered"
     )
+    currency: Optional[str] = Field(
+        default="Rs. ", description="Detected or configured currency symbol (e.g. $, Rs., £, €)"
+    )
 
 
 class ProductCreate(ProductBase):
@@ -52,6 +55,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     url: Optional[str] = None
     target_price: Optional[float] = Field(None, gt=0)
+    currency: Optional[str] = None
     is_active: Optional[bool] = None
     css_selector: Optional[str] = None
 
@@ -60,6 +64,7 @@ class ProductResponse(ProductBase):
     id: int
     current_price: Optional[float] = None
     last_alerted_price: Optional[float] = None
+    currency: Optional[str] = "Rs. "
     is_active: bool
     created_at: datetime
 
@@ -83,6 +88,7 @@ class SelectorTestRequest(BaseModel):
 class SelectorTestResponse(BaseModel):
     success: bool
     price: Optional[float] = None
+    currency: Optional[str] = "Rs. "
     message: str
 
 
@@ -95,6 +101,7 @@ class LinkTestResponse(BaseModel):
     success: bool
     name: str
     price: Optional[float] = None
+    currency: Optional[str] = "Rs. "
     selector: str
     message: str
 
@@ -162,6 +169,7 @@ def create_product(product_in: ProductCreate, db: Session = Depends(get_db)):
         url=product_in.url,
         css_selector=product_in.css_selector,
         target_price=product_in.target_price,
+        currency=product_in.currency or "Rs. ",
         is_active=True,
     )
     db.add(product)
@@ -229,6 +237,8 @@ def update_product(
         product.url = product_in.url.strip()
     if product_in.target_price is not None:
         product.target_price = product_in.target_price
+    if product_in.currency is not None:
+        product.currency = product_in.currency.strip()
     if product_in.is_active is not None:
         product.is_active = product_in.is_active
     if product_in.css_selector is not None:

@@ -329,20 +329,24 @@
     let products = [];
     let currentFilter = 'all';
     let chartInstance = null;
+    let lastDetectedCurrency = 'Rs. ';
 
-    // Currency Detection: Dollars for books.toscrape; Rs. for others (including Amazon Sri Lanka)
-    function getCurrencySymbol(url) {
-      if (!url) return 'Rs. ';
-      const lower = url.toLowerCase();
-      if (lower.includes('toscrape')) {
-        return '$';
+    // Dynamic Currency Detection: uses product.currency if available, else detects from store context
+    function getCurrencySymbol(item) {
+      if (typeof item === 'object' && item !== null && item.currency) {
+        return item.currency;
       }
+      const url = typeof item === 'string' ? item : (item && item.url ? item.url : '');
+      const lower = (url || '').toLowerCase();
+      if (lower.includes('amazon') || lower.includes('ebay')) return '$';
+      if (lower.includes('toscrape') || lower.includes('.uk')) return '£';
+      if (lower.includes('.lk') || lower.includes('ikman') || lower.includes('kapruka') || lower.includes('daraz')) return 'Rs. ';
       return 'Rs. ';
     }
 
-    function formatPrice(price, url) {
+    function formatPrice(price, item) {
       if (price === null || price === undefined) return '<span class="text-slate-400 italic">Not fetched</span>';
-      const sym = getCurrencySymbol(url);
+      const sym = getCurrencySymbol(item);
       return `${sym}${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
@@ -401,9 +405,9 @@
       emptyState.classList.add('hidden');
       tbody.innerHTML = filtered.map(p => {
         const isDeal = p.current_price !== null && p.current_price <= p.target_price;
-        const currentDisplay = formatPrice(p.current_price, p.url);
-        const targetDisplay = formatPrice(p.target_price, p.url);
-        const sym = getCurrencySymbol(p.url);
+        const currentDisplay = formatPrice(p.current_price, p);
+        const targetDisplay = formatPrice(p.target_price, p);
+        const sym = getCurrencySymbol(p);
 
         let alertBadge = '';
         if (isDeal) {
@@ -446,7 +450,7 @@
                   </svg>
                 </button>
                 <!-- Price History Button -->
-                <button onclick="viewHistory(${p.id}, '${escapeHtml(p.name)}', ${p.target_price}, '${escapeHtml(p.url)}')" title="Price History" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                <button onclick="viewHistory(${p.id})" title="Price History" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
                 </button>
                 <!-- Delete Button -->
@@ -565,7 +569,8 @@
           body: JSON.stringify({ url: url, css_selector: 'auto' })
         });
         const result = await res.json();
-        const sym = getCurrencySymbol(url);
+        const sym = result.currency || getCurrencySymbol(url);
+        lastDetectedCurrency = sym;
 
         if (result.success) {
           banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 block";
@@ -605,6 +610,7 @@
         name: document.getElementById('addName').value.trim(),
         url: document.getElementById('addUrl').value.trim(),
         css_selector: 'auto',
+        currency: lastDetectedCurrency || getCurrencySymbol(document.getElementById('addUrl').value.trim()),
         target_price: parseFloat(document.getElementById('addTargetPrice').value)
       };
 
@@ -641,12 +647,12 @@
       document.getElementById('editTargetPrice').value = p.target_price;
       document.getElementById('editIsActive').checked = p.is_active;
 
-      const sym = getCurrencySymbol(p.url);
+      const sym = getCurrencySymbol(p);
       document.getElementById('editTargetLabel').innerText = `Target Price Threshold (${sym.trim()})`;
 
       const currLabel = document.getElementById('editCurrentPriceLabel');
       if (p.current_price !== null) {
-        currLabel.innerText = `Current Price: ${formatPrice(p.current_price, p.url)}`;
+        currLabel.innerText = `Current Price: ${formatPrice(p.current_price, p)}`;
       } else {
         currLabel.innerText = '';
       }
@@ -710,16 +716,18 @@
       }
     }
 
-    async function viewHistory(id, name, targetPrice, url) {
-      const sym = getCurrencySymbol(url);
-      document.getElementById('historyModalTitle').innerText = name;
-      document.getElementById('historyModalSub').innerText = `Target Threshold: ${sym}${targetPrice.toFixed(2)}`;
+    async function viewHistory(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      const sym = getCurrencySymbol(p);
+      document.getElementById('historyModalTitle').innerText = p.name;
+      document.getElementById('historyModalSub').innerText = `Target Threshold: ${sym}${p.target_price.toFixed(2)}`;
       document.getElementById('historyModal').classList.remove('hidden');
 
       try {
         const res = await fetch(`/products/${id}/history`);
         const history = await res.json();
-        renderHistoryChart(history, targetPrice, sym);
+        renderHistoryChart(history, p.target_price, sym);
         renderHistoryTable(history, sym);
       } catch (err) {
         showToast('Failed to load history: ' + err.message, 'error');

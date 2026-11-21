@@ -235,19 +235,89 @@ def is_bot_challenge(html: str) -> bool:
 
 
 def get_request_cookies(url: str) -> dict:
-    """Supply localization cookies so regional prices and LKR currencies are reliably returned regardless of server location."""
+    """Supply localization cookies so regional prices are reliably returned."""
     u = url.lower()
     cookies = {}
-    if "amazon." in u:
-        cookies["i18n-prefs"] = "LKR"
-        cookies["lc-main"] = "en_US"
-    elif "kapruka.com" in u:
+    if "kapruka.com" in u:
         cookies["currency"] = "LKR"
         cookies["KAP_CURRENCY"] = "LKR"
         cookies["siteCurrency"] = "LKR"
         cookies["country"] = "LK"
         cookies["selectedCurrency"] = "LKR"
     return cookies
+
+
+def detect_currency(soup: BeautifulSoup, raw_price_text: str = "", url: str = "") -> str:
+    """
+    Detect the site's natural currency symbol based on:
+    1. Schema.org / OpenGraph currency meta tags.
+    2. Raw price string symbols ($, £, €, ₹, ¥, LKR, Rs).
+    3. Prominent price elements on the page.
+    4. Top-level domain and site context fallback.
+    """
+    # 1. Meta tag inspection
+    for meta in soup.find_all("meta"):
+        prop = (meta.get("property") or meta.get("name") or meta.get("itemprop") or "").lower()
+        if any(k in prop for k in ["price:currency", "pricecurrency", "og:price:currency"]):
+            content = (meta.get("content") or "").strip().upper()
+            if content == "USD":
+                return "$"
+            if content == "GBP":
+                return "£"
+            if content == "EUR":
+                return "€"
+            if content == "LKR":
+                return "Rs. "
+            if content == "INR":
+                return "₹"
+            if content == "JPY":
+                return "¥"
+            if content:
+                return f"{content} "
+
+    # 2. Raw matched price text symbols
+    txt = (raw_price_text or "").strip()
+    if txt:
+        if "$" in txt:
+            return "$"
+        if "£" in txt:
+            return "£"
+        if "€" in txt:
+            return "€"
+        if "₹" in txt:
+            return "₹"
+        if "¥" in txt:
+            return "¥"
+        if "lkr" in txt.lower() or "rs" in txt.lower():
+            return "Rs. "
+
+    # 3. Scan top price elements for currency indicators
+    for sel in [".price", ".sell-price", ".a-price", ".product-price", "[class*='price']"]:
+        for el in soup.select(sel)[:4]:
+            t = el.get_text()
+            if "$" in t:
+                return "$"
+            if "£" in t:
+                return "£"
+            if "€" in t:
+                return "€"
+            if "lkr" in t.lower() or "rs" in t.lower():
+                return "Rs. "
+
+    # 4. Contextual fallback based on domain
+    u = url.lower()
+    if ".lk" in u or "ikman" in u or "kapruka" in u or "daraz" in u:
+        return "Rs. "
+    if ".uk" in u or "toscrape" in u:
+        return "£"
+    if "amazon.com" in u or "ebay.com" in u:
+        return "$"
+    if ".in" in u:
+        return "₹"
+    if any(eu in u for eu in [".de", ".fr", ".it", ".es"]):
+        return "€"
+
+    return "Rs. "
 
 
 def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], Optional[int]]:
@@ -372,20 +442,23 @@ def inspect_product_page(
 
     title = extract_product_title(soup)
     price, matched_selector = extract_price_and_selector(soup, preferred_selector=css_selector)
+    currency = detect_currency(soup, url=url)
 
     if price is not None:
         return {
             "success": True,
             "name": title,
             "price": price,
+            "currency": currency,
             "selector": matched_selector,
-            "message": f"Successfully detected price: ${price:,.2f}",
+            "message": f"Successfully detected price: {currency}{price:,.2f}",
         }
 
     return {
         "success": False,
         "name": title,
         "price": None,
+        "currency": currency,
         "selector": css_selector or "auto",
         "message": "Page loaded, but could not automatically detect price element.",
     }

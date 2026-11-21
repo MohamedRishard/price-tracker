@@ -184,6 +184,7 @@ class TestWorkerProcessing:
             new_price=85.0,
             target_price=100.0,
             previous_price=120.0,
+            currency="Rs. ",
         )
 
         # Check PriceHistory recorded

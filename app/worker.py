@@ -92,12 +92,14 @@ def process_single_product(
                 else "None",
             )
             # Dispatch email notification
+            product_curr = getattr(product, "currency", "Rs. ") or "Rs. "
             alert_notifier(
                 product_name=product.name,
                 product_url=product.url,
                 new_price=new_price,
                 target_price=product.target_price,
                 previous_price=previous_price,
+                currency=product_curr,
             )
             # Update last_alerted_price to suppress duplicates until further drop
             product.last_alerted_price = new_price

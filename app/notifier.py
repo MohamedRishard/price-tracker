@@ -22,10 +22,11 @@ def build_email_html(
     new_price: float,
     target_price: float,
     previous_price: Optional[float] = None,
+    currency: str = "Rs. ",
 ) -> str:
     """Build a modern responsive HTML email for price drop alerts."""
     prev_price_display = (
-        f'<span style="text-decoration: line-through; color: #888888; font-size: 18px; margin-right: 12px;">${previous_price:,.2f}</span>'
+        f'<span style="text-decoration: line-through; color: #888888; font-size: 18px; margin-right: 12px;">{currency}{previous_price:,.2f}</span>'
         if previous_price is not None
         else ""
     )
@@ -35,7 +36,7 @@ def build_email_html(
         pct_drop = round(((previous_price - new_price) / previous_price) * 100)
         savings_badge = f"""
         <div style="display: inline-block; background-color: #e6f4ea; color: #137333; font-weight: bold; font-size: 13px; padding: 4px 10px; border-radius: 12px; margin-bottom: 12px;">
-            Save {pct_drop}% (${(previous_price - new_price):,.2f} off)
+            Save {pct_drop}% ({currency}{(previous_price - new_price):,.2f} off)
         </div>
         """
 
@@ -63,11 +64,11 @@ def build_email_html(
               <span style="font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Current Price</span>
               <div style="margin-top: 4px;">
                 {prev_price_display}
-                <span style="font-size: 26px; font-weight: 700; color: #059669;">${new_price:,.2f}</span>
+                <span style="font-size: 26px; font-weight: 700; color: #059669;">{currency}{new_price:,.2f}</span>
               </div>
             </div>
             <div style="border-top: 1px solid #e5e7eb; padding-top: 10px; margin-top: 10px; font-size: 14px; color: #4b5563;">
-              <strong>Your Target Price:</strong> ${target_price:,.2f}
+              <strong>Your Target Price:</strong> {currency}{target_price:,.2f}
             </div>
           </div>
 
@@ -96,6 +97,7 @@ def send_price_drop_alert(
     target_price: float,
     previous_price: Optional[float] = None,
     recipient_email: Optional[str] = None,
+    currency: str = "Rs. ",
 ) -> bool:
     """
     Send a price-drop HTML email alert via Resend SDK.
@@ -123,12 +125,13 @@ def send_price_drop_alert(
         new_price=new_price,
         target_price=target_price,
         previous_price=previous_price,
+        currency=currency,
     )
 
     params: resend.Emails.SendParams = {
         "from": SENDER_EMAIL,
         "to": [to_email],
-        "subject": f"Price Drop Alert: {product_name} is now ${new_price:,.2f}!",
+        "subject": f"Price Drop Alert: {product_name} is now {currency}{new_price:,.2f}!",
         "html": html_content,
     }
 
