@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PriceDrop Radar &bull; Production Backend Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Price History -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+
+  <!-- Top Navigation -->
+  <header class="sticky top-0 z-30 glass border-b border-slate-200/80 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+        <div>
+          <span class="text-lg font-bold tracking-tight text-slate-900">PriceDrop<span class="text-emerald-600 font-extrabold">Radar</span></span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Run Worker Button -->
+        <button id="btnRunWorker" onclick="triggerWorkerRun()" class="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition duration-150 border border-slate-200">
+          <svg id="workerIcon" class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span id="workerBtnText">Check Prices Now</span>
+        </button>
+
+        <!-- Add Product Button -->
+        <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/30 transition duration-150">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+          Track With Link
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- KPI Metric Cards (Clean 3-Card Layout) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tracked Items</span>
+          <span class="p-2 rounded-xl bg-blue-50 text-blue-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          </span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiTotal" class="text-3xl font-extrabold text-slate-900">0</span>
+          <span class="text-xs text-slate-500">products</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Drop Alerts Triggered</span>
+          <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          </span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiAlerts" class="text-3xl font-extrabold text-emerald-600">0</span>
+          <span class="text-xs text-slate-500">deals below target</span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Monitoring</span>
+          <span class="p-2 rounded-xl bg-violet-50 text-violet-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpiActive" class="text-3xl font-extrabold text-slate-900">0</span>
+          <span class="text-xs text-slate-500">polling every 6h</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Controls & Search -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <!-- Filters (Removed Deals Only) -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button onclick="setFilter('all')" id="filterAll" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xs">All Items</button>
+          <button onclick="setFilter('active')" id="filterActive" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">Active Only</button>
+        </div>
+
+        <!-- Search -->
+        <div class="relative w-full sm:w-72">
+          <input type="text" id="searchInput" oninput="renderTable()" placeholder="Search tracked items..." class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Products Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50/75 text-slate-500 font-semibold border-b border-slate-200/80 text-xs uppercase tracking-wider">
+            <tr>
+              <th class="py-3.5 px-4 sm:px-6">Product</th>
+              <th class="py-3.5 px-4">Current Price</th>
+              <th class="py-3.5 px-4">Target Threshold</th>
+              <th class="py-3.5 px-4">Status & Alert</th>
+              <th class="py-3.5 px-4 text-right pr-6">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="productsTableBody" class="divide-y divide-slate-100">
+            <!-- Dynamic rows loaded via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-16 px-4">
+        <div class="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-800">No tracked products found</h3>
+        <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Paste any product URL to automatically detect its price and start tracking.</p>
+        <button onclick="openAddModal()" class="mt-4 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 shadow-sm">Track First Product</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Floating Stores Icon & Menu in Bottom-Left -->
+  <div class="fixed bottom-5 left-5 z-40">
+    <!-- Flyout Menu Panel -->
+    <div id="storesMenu" class="hidden mb-3 w-72 bg-white rounded-2xl p-4 shadow-2xl border border-slate-200 transition-all transform origin-bottom-left">
+      <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="p-1 rounded-md bg-emerald-50 text-emerald-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          </span>
+          <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Web Stores</span>
+        </div>
+        <button onclick="toggleStoresMenu()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1 mb-2.5">Jump directly to the home pages of all stores in your monitoring watchlist:</p>
+      <div id="storesList" class="space-y-1 max-h-64 overflow-y-auto">
+        <!-- Dynamic store links -->
+      </div>
+    </div>
+
+    <!-- Floating Trigger Button -->
+    <button onclick="toggleStoresMenu()" id="btnStoresToggle" title="View Tracked Web Stores" class="h-12 w-12 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 border border-slate-700/60">
+      <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Add Product Modal (No CSS Selector Input) -->
+  <div id="addModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 transform transition-all">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Track Product With Link</h3>
+          <p class="text-xs text-slate-500">Paste any product link — price and title are auto-detected</p>
+        </div>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="addProductForm" onsubmit="handleCreateProduct(event)" class="mt-4 space-y-4">
+        <!-- URL Input + Test Button -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Page Link</label>
+          <div class="flex gap-2">
+            <input type="url" id="addUrl" required placeholder="https://store.com/item/123" class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+            <button type="button" onclick="testLinkLive('add')" id="btnTestLink" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition">
+              <svg id="testLinkIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span id="testLinkText">Test Link</span>
+            </button>
+          </div>
+          <div id="testResultBanner" class="hidden mt-2 p-3 rounded-lg text-xs font-medium"></div>
+        </div>
+
+        <!-- Product Name -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
+          <input type="text" id="addName" required placeholder="e.g. Three Blade Manual Chopper" class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+        </div>
+
+        <!-- Target Alert Price -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider" id="addTargetLabel">Target Price Threshold</label>
+            <span id="detectedPriceLabel" class="text-xs text-emerald-600 font-semibold hidden"></span>
+          </div>
+          <input type="number" step="0.01" min="0.01" id="addTargetPrice" required placeholder="e.g. 500.00" class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <p class="text-xs text-slate-400 mt-1">Alert fires when the price drops to or below this threshold.</p>
+        </div>
+
+        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" id="btnSubmitAdd" class="px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">Start Tracking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Product Modal -->
+  <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 transform transition-all">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Edit Tracked Product</h3>
+          <p class="text-xs text-slate-500">Update target threshold or product details</p>
+        </div>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="editProductForm" onsubmit="handleUpdateProduct(event)" class="mt-4 space-y-4">
+        <input type="hidden" id="editProductId">
+
+        <!-- Product Page Link (with re-test capability) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Page Link</label>
+          <div class="flex gap-2">
+            <input type="url" id="editUrl" required class="flex-1 px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50">
+            <button type="button" onclick="testLinkLive('edit')" id="btnEditTestLink" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200">
+              Check
+            </button>
+          </div>
+          <div id="editTestResultBanner" class="hidden mt-2 p-3 rounded-lg text-xs font-medium"></div>
+        </div>
+
+        <!-- Product Title -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Product Title</label>
+          <input type="text" id="editName" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+        </div>
+
+        <!-- Target Alert Price -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider" id="editTargetLabel">Target Price Threshold</label>
+            <span id="editCurrentPriceLabel" class="text-xs text-slate-500 font-semibold"></span>
+          </div>
+          <input type="number" step="0.01" min="0.01" id="editTargetPrice" required class="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <p class="text-xs text-slate-400 mt-1">Alert triggers when the price drops to or below this amount.</p>
+        </div>
+
+        <!-- Monitoring Active Toggle -->
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="editIsActive" class="w-4 h-4 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-500">
+          <label for="editIsActive" class="text-sm font-semibold text-slate-700">Active Monitoring (Check every 6 hours)</label>
+        </div>
+
+        <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+          <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" id="btnSubmitEdit" class="px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Price History Modal -->
+  <div id="historyModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 id="historyModalTitle" class="text-lg font-bold text-slate-900">Price History</h3>
+          <p id="historyModalSub" class="text-xs text-slate-500">Recorded price points over time</p>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="py-4">
+        <div class="h-56 w-full">
+          <canvas id="historyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- History Table Container -->
+      <div class="flex-1 overflow-y-auto border-t border-slate-100 pt-3">
+        <table class="w-full text-left text-xs">
+          <thead class="text-slate-400 uppercase font-bold sticky top-0 bg-white">
+            <tr>
+              <th class="pb-2">Timestamp (UTC)</th>
+              <th class="pb-2">Recorded Price</th>
+              <th class="pb-2 text-right">Trend</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-100 text-slate-700">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JavaScript Application Logic -->
+  <script>
+    let products = [];
+    let currentFilter = 'all';
+    let chartInstance = null;
+
+    // Currency Detection: Dollars for amazon & toscrape; Rs. for others
+    function getCurrencySymbol(url) {
+      if (!url) return 'Rs. ';
+      const lower = url.toLowerCase();
+      if (lower.includes('amazon') || lower.includes('toscrape')) {
+        return '$';
+      }
+      return 'Rs. ';
+    }
+
+    function formatPrice(price, url) {
+      if (price === null || price === undefined) return '<span class="text-slate-400 italic">Not fetched</span>';
+      const sym = getCurrencySymbol(url);
+      return `${sym}${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch('/products');
+        if (!res.ok) throw new Error('Failed to load products');
+        products = await res.json();
+        updateKpis();
+        renderTable();
+        renderStoresMenu();
+      } catch (err) {
+        showToast('Error loading products: ' + err.message, 'error');
+      }
+    }
+
+    function updateKpis() {
+      document.getElementById('kpiTotal').innerText = products.length;
+      const deals = products.filter(p => p.current_price !== null && p.current_price <= p.target_price);
+      document.getElementById('kpiAlerts').innerText = deals.length;
+      const active = products.filter(p => p.is_active);
+      document.getElementById('kpiActive').innerText = active.length;
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      ['all', 'active'].forEach(f => {
+        const btn = document.getElementById('filter' + f.charAt(0).toUpperCase() + f.slice(1));
+        if (f === filter) {
+          btn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xs";
+        } else {
+          btn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200";
+        }
+      });
+      renderTable();
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const tbody = document.getElementById('productsTableBody');
+      const emptyState = document.getElementById('emptyState');
+
+      let filtered = products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search) || p.url.toLowerCase().includes(search);
+        if (!matchesSearch) return false;
+        if (currentFilter === 'active') return p.is_active;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tbody.innerHTML = filtered.map(p => {
+        const isDeal = p.current_price !== null && p.current_price <= p.target_price;
+        const currentDisplay = formatPrice(p.current_price, p.url);
+        const targetDisplay = formatPrice(p.target_price, p.url);
+        const sym = getCurrencySymbol(p.url);
+
+        let alertBadge = '';
+        if (isDeal) {
+          alertBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 animate-pulse">🔥 Drop Alert Triggered</span>`;
+        } else if (p.current_price !== null) {
+          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600">Monitoring (${sym}${(p.current_price - p.target_price).toFixed(2)} to target)</span>`;
+        } else {
+          alertBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">Awaiting initial run</span>`;
+        }
+
+        const domain = getDomainName(p.url);
+
+        return `
+          <tr class="hover:bg-slate-50/75 transition duration-150">
+            <td class="py-4 px-4 sm:px-6">
+              <div class="font-bold text-slate-900">${escapeHtml(p.name)}</div>
+              <div class="flex items-center gap-2 mt-0.5">
+                <a href="${escapeHtml(p.url)}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 max-w-xs truncate">
+                  ${domain}
+                  <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+                ${!p.is_active ? '<span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">Paused</span>' : ''}
+              </div>
+            </td>
+            <td class="py-4 px-4 font-bold ${isDeal ? 'text-emerald-600 text-base' : 'text-slate-900'}">
+              ${currentDisplay}
+            </td>
+            <td class="py-4 px-4 text-slate-600 font-semibold">
+              ${targetDisplay}
+            </td>
+            <td class="py-4 px-4">
+              ${alertBadge}
+            </td>
+            <td class="py-4 px-4 text-right pr-6 whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <!-- Edit Threshold Button -->
+                <button onclick="openEditModal(${p.id})" title="Edit Target Threshold" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <!-- Price History Button -->
+                <button onclick="viewHistory(${p.id}, '${escapeHtml(p.name)}', ${p.target_price}, '${escapeHtml(p.url)}')" title="Price History" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                </button>
+                <!-- Delete Button -->
+                <button onclick="deleteProduct(${p.id}, '${escapeHtml(p.name)}')" title="Delete Product" class="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Dynamic Bottom-Left Stores List Generation
+    function renderStoresMenu() {
+      const container = document.getElementById('storesList');
+      if (!products.length) {
+        container.innerHTML = '<div class="text-xs text-slate-400 italic py-2">No stores added yet.</div>';
+        return;
+      }
+
+      // Collect unique home origins
+      const storeMap = new Map();
+      products.forEach(p => {
+        try {
+          const u = new URL(p.url);
+          const origin = u.origin;
+          const host = u.hostname.replace(/^www\./, '');
+          if (!storeMap.has(origin)) {
+            storeMap.set(origin, {
+              origin: origin,
+              host: host,
+              count: 1
+            });
+          } else {
+            storeMap.get(origin).count++;
+          }
+        } catch (e) {}
+      });
+
+      container.innerHTML = Array.from(storeMap.values()).map(store => `
+        <a href="${store.origin}" target="_blank" class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 group">
+          <div class="flex items-center gap-2.5">
+            <div class="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-700 uppercase">
+              ${store.host.charAt(0)}
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-800 capitalize group-hover:text-emerald-600 transition">${store.host}</div>
+              <div class="text-[10px] text-slate-400">${store.count} item${store.count > 1 ? 's' : ''} tracked</div>
+            </div>
+          </div>
+          <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+        </a>
+      `).join('');
+    }
+
+    function toggleStoresMenu() {
+      const menu = document.getElementById('storesMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function getDomainName(url) {
+      try {
+        const u = new URL(url);
+        return u.hostname.replace(/^www\./, '');
+      } catch (e) {
+        return url;
+      }
+    }
+
+    async function triggerWorkerRun() {
+      const btn = document.getElementById('btnRunWorker');
+      const icon = document.getElementById('workerIcon');
+      const text = document.getElementById('workerBtnText');
+
+      btn.disabled = true;
+      icon.classList.add('animate-spin');
+      text.innerText = 'Checking All Stores...';
+
+      try {
+        const res = await fetch('/worker/run', { method: 'POST' });
+        const data = await res.json();
+        showToast(`Price check finished! Processed: ${data.summary.processed}, Failed: ${data.summary.failed}`, 'success');
+        await loadProducts();
+      } catch (err) {
+        showToast('Worker execution failed: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        icon.classList.remove('animate-spin');
+        text.innerText = 'Check Prices Now';
+      }
+    }
+
+    async function testLinkLive(mode = 'add') {
+      const prefix = mode === 'edit' ? 'edit' : 'add';
+      const url = document.getElementById(prefix + 'Url').value.trim();
+      const banner = document.getElementById(mode === 'edit' ? 'editTestResultBanner' : 'testResultBanner');
+      const nameInput = document.getElementById(prefix + 'Name');
+      const targetInput = document.getElementById(prefix + 'TargetPrice');
+
+      if (!url) {
+        banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 block";
+        banner.innerText = "Please enter a product link first.";
+        return;
+      }
+
+      banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 block";
+      banner.innerText = "Connecting to store and detecting price & title...";
+
+      try {
+        const res = await fetch('/api/test-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url, css_selector: 'auto' })
+        });
+        const result = await res.json();
+        const sym = getCurrencySymbol(url);
+
+        if (result.success) {
+          banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 block";
+          banner.innerHTML = `
+            <div class="font-bold">✅ Detected Price: ${sym}${result.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+            <div class="mt-0.5 text-slate-600 truncate">Title: ${escapeHtml(result.name)}</div>
+          `;
+
+          if (!nameInput.value || nameInput.value === 'Tracked Product') {
+            nameInput.value = result.name;
+          }
+
+          if (mode === 'add' && !targetInput.value) {
+            targetInput.value = (result.price * 0.95).toFixed(2);
+          }
+
+          const detectedLabel = document.getElementById(mode === 'edit' ? 'editCurrentPriceLabel' : 'detectedPriceLabel');
+          detectedLabel.innerText = `Current: ${sym}${result.price.toFixed(2)}`;
+          detectedLabel.classList.remove('hidden');
+        } else {
+          banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block";
+          banner.innerText = `⚠️ ${result.message}`;
+        }
+      } catch (err) {
+        banner.className = "mt-2 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block";
+        banner.innerText = "Error testing link: " + err.message;
+      }
+    }
+
+    async function handleCreateProduct(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitAdd');
+      btn.disabled = true;
+      btn.innerText = "Saving...";
+
+      const payload = {
+        name: document.getElementById('addName').value.trim(),
+        url: document.getElementById('addUrl').value.trim(),
+        css_selector: 'auto',
+        target_price: parseFloat(document.getElementById('addTargetPrice').value)
+      };
+
+      try {
+        const res = await fetch('/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || 'Failed to create product');
+        }
+
+        showToast(`Tracking started for "${payload.name}"!`, 'success');
+        closeAddModal();
+        await loadProducts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Start Tracking";
+      }
+    }
+
+    function openEditModal(productId) {
+      const p = products.find(x => x.id === productId);
+      if (!p) return;
+
+      document.getElementById('editProductId').value = p.id;
+      document.getElementById('editName').value = p.name;
+      document.getElementById('editUrl').value = p.url;
+      document.getElementById('editTargetPrice').value = p.target_price;
+      document.getElementById('editIsActive').checked = p.is_active;
+
+      const sym = getCurrencySymbol(p.url);
+      document.getElementById('editTargetLabel').innerText = `Target Price Threshold (${sym.trim()})`;
+
+      const currLabel = document.getElementById('editCurrentPriceLabel');
+      if (p.current_price !== null) {
+        currLabel.innerText = `Current Price: ${formatPrice(p.current_price, p.url)}`;
+      } else {
+        currLabel.innerText = '';
+      }
+
+      document.getElementById('editTestResultBanner').classList.add('hidden');
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.add('hidden');
+      document.getElementById('editProductForm').reset();
+    }
+
+    async function handleUpdateProduct(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitEdit');
+      btn.disabled = true;
+      btn.innerText = "Saving...";
+
+      const productId = document.getElementById('editProductId').value;
+      const payload = {
+        name: document.getElementById('editName').value.trim(),
+        url: document.getElementById('editUrl').value.trim(),
+        target_price: parseFloat(document.getElementById('editTargetPrice').value),
+        is_active: document.getElementById('editIsActive').checked
+      };
+
+      try {
+        const res = await fetch(`/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || 'Failed to update product');
+        }
+
+        showToast(`Updated threshold for "${payload.name}"!`, 'success');
+        closeEditModal();
+        await loadProducts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Save Changes";
+      }
+    }
+
+    async function deleteProduct(id, name) {
+      if (!confirm(`Are you sure you want to stop tracking "${name}" and delete its price history?`)) return;
+
+      try {
+        const res = await fetch(`/products/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete product');
+        showToast(`Removed "${name}" from tracker.`, 'info');
+        await loadProducts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function viewHistory(id, name, targetPrice, url) {
+      const sym = getCurrencySymbol(url);
+      document.getElementById('historyModalTitle').innerText = name;
+      document.getElementById('historyModalSub').innerText = `Target Threshold: ${sym}${targetPrice.toFixed(2)}`;
+      document.getElementById('historyModal').classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/products/${id}/history`);
+        const history = await res.json();
+        renderHistoryChart(history, targetPrice, sym);
+        renderHistoryTable(history, sym);
+      } catch (err) {
+        showToast('Failed to load history: ' + err.message, 'error');
+      }
+    }
+
+    function renderHistoryChart(history, targetPrice, sym = '$') {
+      const ctx = document.getElementById('historyChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      const sorted = [...history].reverse();
+      const labels = sorted.map(h => new Date(h.recorded_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      const prices = sorted.map(h => h.price);
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels.length ? labels : ['No Scrapes Yet'],
+          datasets: [
+            {
+              label: `Scraped Price (${sym.trim()})`,
+              data: prices.length ? prices : [targetPrice],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4,
+            },
+            {
+              label: `Target Threshold (${sym.trim()})`,
+              data: labels.map(() => targetPrice),
+              borderColor: '#f59e0b',
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            y: {
+              ticks: { callback: v => sym + v }
+            }
+          }
+        }
+      });
+    }
+
+    function renderHistoryTable(history, sym = '$') {
+      const tbody = document.getElementById('historyTableBody');
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-400">No price records yet. Run the worker to log the first price.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = history.map((h, i) => {
+        let trend = '<span class="text-slate-400">&mdash;</span>';
+        if (i < history.length - 1) {
+          const prev = history[i + 1].price;
+          if (h.price < prev) {
+            trend = `<span class="text-emerald-600 font-bold">&darr; -${sym}${(prev - h.price).toFixed(2)}</span>`;
+          } else if (h.price > prev) {
+            trend = `<span class="text-red-500 font-bold">&uarr; +${sym}${(h.price - prev).toFixed(2)}</span>`;
+          }
+        }
+        return `
+          <tr>
+            <td class="py-2.5 font-mono text-slate-500">${new Date(h.recorded_at).toLocaleString()}</td>
+            <td class="py-2.5 font-bold text-slate-900">${sym}${h.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td class="py-2.5 text-right">${trend}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openAddModal() {
+      document.getElementById('addModal').classList.remove('hidden');
+      document.getElementById('testResultBanner').classList.add('hidden');
+      document.getElementById('detectedPriceLabel').classList.add('hidden');
+    }
+
+    function closeAddModal() {
+      document.getElementById('addModal').classList.add('hidden');
+      document.getElementById('addProductForm').reset();
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('historyModal').classList.add('hidden');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const bg = type === 'success' ? 'bg-emerald-600 text-white' : type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-900 text-white';
+      toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg text-sm font-semibold pointer-events-auto transition transform duration-300 translate-y-2 opacity-0 flex items-center gap-2`;
+      toast.innerText = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+    }
+
+    // Close flyout menu when clicking outside
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('storesMenu');
+      const btn = document.getElementById('btnStoresToggle');
+      if (menu && !menu.classList.contains('hidden')) {
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+          menu.classList.add('hidden');
+        }
+      }
+    });
+
+    // Initial Load
+    loadProducts();
+  </script>
+</body>
+</html>
