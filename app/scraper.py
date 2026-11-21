@@ -35,9 +35,13 @@ AUTO_PRICE_SELECTORS = [
     # 1. Dedicated Sale / Deal Price elements (highest priority discounted prices)
     "#pricelbl",
     ".priceM",
+    "[id^='product-price-'] .price",
+    "[id^='product-price-']",
+    ".product-shop .regular-price .price",
+    ".product-shop .special-price .price",
     ".sell-price",
     ".selling-price",
-    ".special-price",
+    ".special-price:not(#soldtogether-total-price)",
     ".final-price",
     ".sale-price",
     ".price-current",
@@ -53,21 +57,27 @@ AUTO_PRICE_SELECTORS = [
     "meta[property='product:price:amount']",
     "[itemprop='price']",
     # 4. WooCommerce Main Product Price Elements
+    ".entry-summary .price ins .woocommerce-Price-amount",
+    ".entry-summary .price .woocommerce-Price-amount",
     ".entry-summary .price",
+    ".summary .price ins .woocommerce-Price-amount",
+    ".summary .price .woocommerce-Price-amount",
     ".summary .price",
+    "p.price ins .amount",
+    "p.price .amount",
     "p.price",
     ".woocommerce-Price-amount",
-    # 4. Ikman & Saltside Classifieds Leaf Elements
+    # 5. Ikman & Saltside Classifieds Leaf Elements
     "div[class*='amount--']",
     "div[class*='price-section--']",
     "span[class*='amount--']",
-    # 5. Standard E-Commerce Leaf Selectors
+    # 6. Standard E-Commerce Leaf Selectors
     ".price_color",
     ".product-price",
     "span.price-item--sale",
     "span.price-item",
     "span.money",
-    # 6. Marketplaces
+    # 7. Marketplaces
     ".x-price-primary",
     "div[data-testid='x-price-primary']",
     ".x-bin-price__content",
@@ -153,23 +163,30 @@ def extract_price_and_selector(
     """
     # 1. Try preferred selector if given and not auto
     if preferred_selector and preferred_selector.strip().lower() != "auto":
-        element = soup.select_one(preferred_selector)
-        if element:
-            raw_text = element.get("content") or element.get_text(separator=" ", strip=True)
-            price = parse_price(raw_text)
-            if price is not None:
-                return price, preferred_selector
+        try:
+            element = soup.select_one(preferred_selector)
+            if element:
+                raw_text = element.get("content") or element.get_text(separator=" ", strip=True)
+                price = parse_price(raw_text)
+                if price is not None and price > 0:
+                    return price, preferred_selector
+        except Exception:
+            pass
 
     # 2. Try list of known automatic selectors
     for sel in AUTO_PRICE_SELECTORS:
-        for element in soup.select(sel):
-            cls = " ".join(element.get("class", []))
-            if any(term in cls.lower() for term in ["discount", "percent", "badge", "saving"]):
-                continue
-            raw_text = element.get("content") or element.get_text(separator=" ", strip=True)
-            price = parse_price(raw_text)
-            if price is not None:
-                return price, sel
+        try:
+            for element in soup.select(sel):
+                el_id = (element.get("id") or "").lower()
+                cls = " ".join(element.get("class", [])).lower()
+                if any(term in cls or term in el_id for term in ["soldtogether", "bundle", "discount", "percent", "badge", "saving", "total-price"]):
+                    continue
+                raw_text = element.get("content") or element.get_text(separator=" ", strip=True)
+                price = parse_price(raw_text)
+                if price is not None and price > 0:
+                    return price, sel
+        except Exception:
+            continue
 
     # 3. Try schema.org JSON-LD
     for script in soup.find_all("script", type="application/ld+json"):
@@ -368,9 +385,9 @@ def convert_foreign_price_to_lkr(price: float, currency_sym: str, raw_text: str 
     return round(price, 2), "Rs. "
 
 
-def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], Optional[int]]:
+def fetch_html_content(url: str, timeout: float = 20.0) -> Tuple[Optional[str], Optional[int]]:
     """
-    Fetch webpage HTML using httpx, with automatic fallback to curl_cffi for bot-protected sites.
+    Fetch webpage HTML using httpx, with automatic fallback and retry for slow / bot-protected sites.
     """
     status_code = None
     cookies = get_request_cookies(url)
@@ -417,6 +434,25 @@ def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], 
                 status_code = cffi_resp.status_code
         except Exception as exc:
             logger.warning("curl_cffi request failed for %s: %s", url, str(exc))
+
+    # Attempt 3: Fallback retry with mobile User-Agent (bypasses many desktop-only challenge scripts)
+    mobile_headers = dict(DEFAULT_HEADERS)
+    mobile_headers["User-Agent"] = (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+    )
+    try:
+        with httpx.Client(
+            headers=mobile_headers,
+            cookies=cookies,
+            follow_redirects=True,
+            timeout=timeout,
+        ) as client:
+            resp = client.get(url)
+            if resp.status_code == 200 and not is_bot_challenge(resp.text):
+                return resp.text, 200
+    except Exception:
+        pass
 
     return None, status_code
 
