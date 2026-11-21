@@ -129,9 +129,16 @@ class WebStoreResponse(BaseModel):
 @app.get("/", response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
 @app.get("/dashboard", response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
 def serve_dashboard():
-    """Serve the interactive web dashboard."""
+    """Serve the interactive web dashboard with cache-busting headers."""
     if DASHBOARD_HTML_PATH.exists():
-        return FileResponse(DASHBOARD_HTML_PATH)
+        return FileResponse(
+            DASHBOARD_HTML_PATH,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
     return HTMLResponse("<h1>Dashboard UI file not found</h1>", status_code=404)
 
 

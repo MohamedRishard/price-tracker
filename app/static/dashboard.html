@@ -390,10 +390,6 @@
 
     // All prices are converted and displayed uniformly in Sri Lankan Rupees (Rs. )
     function getCurrencySymbol(item) {
-      if (typeof item === 'object' && item !== null && item.currency) {
-        const c = item.currency.trim();
-        return c.endsWith('.') ? c + ' ' : c + '. ';
-      }
       return 'Rs. ';
     }
 
