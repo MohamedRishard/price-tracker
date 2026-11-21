@@ -20,7 +20,7 @@ DEFAULT_HEADERS = {
         "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Language": "en-LK,en;q=0.9,en-US;q=0.8",
     "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
     "Sec-Ch-Ua-Mobile": "?0",
     "Sec-Ch-Ua-Platform": '"Windows"',
@@ -45,7 +45,14 @@ AUTO_PRICE_SELECTORS = [
     "meta[property='og:price:amount']",
     "meta[property='product:price:amount']",
     "[itemprop='price']",
-    # 3. WooCommerce Main Product Price Elements
+    # 3. Amazon & Kapruka Leaf Selectors (clean single-amount text)
+    ".a-price .a-offscreen",
+    "span.a-offscreen",
+    "#priceblock_ourprice",
+    "#priceblock_dealprice",
+    "#pricelbl",
+    ".priceM",
+    # 4. WooCommerce Main Product Price Elements
     ".entry-summary .price",
     ".summary .price",
     "p.price",
@@ -227,16 +234,34 @@ def is_bot_challenge(html: str) -> bool:
     return any(ind in lowered for ind in indicators)
 
 
+def get_request_cookies(url: str) -> dict:
+    """Supply localization cookies so regional prices and LKR currencies are reliably returned regardless of server location."""
+    u = url.lower()
+    cookies = {}
+    if "amazon." in u:
+        cookies["i18n-prefs"] = "LKR"
+        cookies["lc-main"] = "en_US"
+    elif "kapruka.com" in u:
+        cookies["currency"] = "LKR"
+        cookies["KAP_CURRENCY"] = "LKR"
+        cookies["siteCurrency"] = "LKR"
+        cookies["country"] = "LK"
+        cookies["selectedCurrency"] = "LKR"
+    return cookies
+
+
 def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], Optional[int]]:
     """
     Fetch webpage HTML using httpx, with automatic fallback to curl_cffi for bot-protected sites.
     """
     status_code = None
+    cookies = get_request_cookies(url)
 
     # Attempt 1: Standard httpx client
     try:
         with httpx.Client(
             headers=DEFAULT_HEADERS,
+            cookies=cookies,
             follow_redirects=True,
             timeout=timeout,
         ) as client:
@@ -257,7 +282,13 @@ def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], 
     if HAS_CURL_CFFI:
         try:
             logger.info("Attempting curl_cffi browser impersonation for %s", url)
-            cffi_resp = cffi_requests.get(url, impersonate="chrome124", timeout=timeout)
+            cffi_resp = cffi_requests.get(
+                url,
+                headers=DEFAULT_HEADERS,
+                cookies=cookies,
+                impersonate="chrome124",
+                timeout=timeout,
+            )
             if cffi_resp.status_code == 200:
                 if is_bot_challenge(cffi_resp.text):
                     logger.warning("curl_cffi also encountered stealth anti-bot challenge for %s", url)

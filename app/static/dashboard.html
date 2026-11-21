@@ -330,11 +330,11 @@
     let currentFilter = 'all';
     let chartInstance = null;
 
-    // Currency Detection: Dollars for amazon & toscrape; Rs. for others
+    // Currency Detection: Dollars for books.toscrape; Rs. for others (including Amazon Sri Lanka)
     function getCurrencySymbol(url) {
       if (!url) return 'Rs. ';
       const lower = url.toLowerCase();
-      if (lower.includes('amazon') || lower.includes('toscrape')) {
+      if (lower.includes('toscrape')) {
         return '$';
       }
       return 'Rs. ';
