@@ -146,11 +146,13 @@ def send_price_drop_alert(
 
 def send_dashboard_summary_email(
     products: list,
+    failed_items: Optional[list] = None,
     recipient_email: Optional[str] = None,
 ) -> bool:
     """
     Send a full status summary email table of all currently tracked products
-    whenever 'Check Prices Now' is manually invoked.
+    whenever 'Check Prices Now' is manually invoked, prominently reporting
+    any sites where scraping failed.
     """
     to_email = recipient_email or ALERT_RECIPIENT_EMAIL
     api_key = os.getenv("RESEND_API_KEY")
@@ -161,15 +163,68 @@ def send_dashboard_summary_email(
 
     resend.api_key = api_key
 
+    failed_items = failed_items or []
+    failed_ids = {item["id"] for item in failed_items if "id" in item}
+
+    # Build failed sites warning banner if any item failed
+    failed_section_html = ""
+    if failed_items:
+        failed_rows = ""
+        for fi in failed_items:
+            f_curr = fi.get("currency", "Rs. ") or "Rs. "
+            pres_price = f"{f_curr}{fi['current_price']:,.2f}" if fi.get("current_price") is not None else "Not set"
+            failed_rows += f"""
+            <tr style="border-bottom: 1px solid #fecaca;">
+              <td style="padding: 8px 12px; vertical-align: top; font-weight: 600; color: #991b1b;">
+                <a href="{fi['url']}" target="_blank" style="color: #991b1b; text-decoration: underline;">{fi['name']}</a>
+              </td>
+              <td style="padding: 8px 12px; vertical-align: top; color: #7f1d1d;">
+                {pres_price}
+              </td>
+              <td style="padding: 8px 12px; vertical-align: top; color: #7f1d1d; font-size: 11px;">
+                {fi.get('reason', 'Site timeout or anti-bot challenge')}
+              </td>
+            </tr>
+            """
+
+        failed_section_html = f"""
+        <div style="background-color: #FEF2F2; border: 1px solid #F87171; border-radius: 10px; padding: 16px 20px; margin-bottom: 22px;">
+          <h2 style="margin: 0 0 6px 0; color: #991B1B; font-size: 15px; font-weight: 700;">
+            ⚠️ {len(failed_items)} Store(s) Encountered Scraping Issues
+          </h2>
+          <p style="margin: 0 0 10px 0; font-size: 13px; color: #7F1D1D; line-height: 1.45;">
+            The following product page(s) could not be refreshed on this check (due to temporary store rate-limiting, Cloudflare/Shopify challenge, or network timeout).
+            Their previous database prices were safely preserved and the engine will retry automatically on the next scheduled check.
+          </p>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; background: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #FECACA;">
+            <thead>
+              <tr style="background: #FEE2E2; text-align: left; color: #991B1B; font-size: 11px; text-transform: uppercase;">
+                <th style="padding: 8px 12px;">Product</th>
+                <th style="padding: 8px 12px;">Preserved Price</th>
+                <th style="padding: 8px 12px;">Notice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {failed_rows}
+            </tbody>
+          </table>
+        </div>
+        """
+
+    # Build main products table
     table_rows = ""
     for p in products:
         curr = getattr(p, "currency", "Rs. ") or "Rs. "
         is_deal = p.current_price is not None and p.current_price <= p.target_price
-        badge = (
-            '<span style="background: #15370D; color: #FFF2B4; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 11px;">🔥 Drop Alert!</span>'
-            if is_deal
-            else '<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 12px; font-size: 11px;">Monitoring</span>'
-        )
+        is_failed = p.id in failed_ids
+
+        if is_failed:
+            badge = '<span style="background: #FEE2E2; color: #991B1B; font-weight: 600; padding: 4px 8px; border-radius: 10px; font-size: 11px;">⚠️ Failed to refresh</span>'
+        elif is_deal:
+            badge = '<span style="background: #15370D; color: #FFF2B4; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 11px;">🔥 Drop Alert!</span>'
+        else:
+            badge = '<span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 12px; font-size: 11px;">Monitoring</span>'
+
         current_str = f"<strong>{curr}{p.current_price:,.2f}</strong>" if p.current_price is not None else '<span style="color: #94a3b8; font-style: italic;">Not fetched</span>'
         target_str = f"{curr}{p.target_price:,.2f}"
 
@@ -193,6 +248,12 @@ def send_dashboard_summary_email(
         </tr>
         """
 
+    header_subtitle = (
+        f"Instant status snapshot of all {len(products)} tracked items. (⚠️ {len(failed_items)} store(s) could not be refreshed on this check)"
+        if failed_items
+        else f"All {len(products)} monitored products were checked and updated successfully in Sri Lankan Rupees."
+    )
+
     html = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -201,13 +262,16 @@ def send_dashboard_summary_email(
       <title>Price Tracker - Live Check Report</title>
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
-      <div style="max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+      <div style="max-width: 700px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
         <div style="background-color: #15370D; padding: 24px; color: #ffffff; border-bottom: 3px solid #E5CD82;">
           <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #FFF2B4; letter-spacing: -0.3px;">PriceDrop Radar &bull; Live Price Check Report</h1>
-          <p style="margin: 6px 0 0 0; font-size: 13px; color: #E5CD82;">Here is the instant snapshot of all {len(products)} tracked items from your latest manual price check.</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #E5CD82;">{header_subtitle}</p>
         </div>
 
-        <div style="padding: 20px;">
+        <div style="padding: 22px;">
+          {failed_section_html}
+
+          <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700; color: #15370D; text-transform: uppercase; letter-spacing: 0.5px;">All Tracked Products Status</h3>
           <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
               <thead>
@@ -233,10 +297,16 @@ def send_dashboard_summary_email(
     </html>
     """
 
+    subject = (
+        f"⚠️ Price Tracker Report: {len(failed_items)} Scrape Issue(s) Detected"
+        if failed_items
+        else "📊 Price Tracker Report: All Stores Checked Successfully"
+    )
+
     params: resend.Emails.SendParams = {
         "from": SENDER_EMAIL,
         "to": [to_email],
-        "subject": "📊 Price Tracker - Check Prices Now Live Report",
+        "subject": subject,
         "html": html,
     }
 

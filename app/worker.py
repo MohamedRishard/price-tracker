@@ -136,6 +136,7 @@ def run_worker() -> dict:
             db.query(Product).filter(Product.is_active == True).all()  # noqa: E712
         )
         summary["total"] = len(active_products)
+        failed_items = []
         logger.info("Worker run started. Found %d active products to check.", len(active_products))
 
         for product in active_products:
@@ -144,7 +145,18 @@ def run_worker() -> dict:
                 summary["processed"] += 1
             else:
                 summary["failed"] += 1
+                curr = getattr(product, "currency", "Rs. ") or "Rs. "
+                failed_items.append({
+                    "id": product.id,
+                    "name": product.name,
+                    "url": product.url,
+                    "target_price": product.target_price,
+                    "current_price": product.current_price,
+                    "currency": curr,
+                    "reason": "Price element could not be extracted (site challenge, rate-limited, or selector not matched)"
+                })
 
+        summary["failed_items"] = failed_items
         logger.info(
             "Worker run completed: %d total, %d processed, %d failed.",
             summary["total"],

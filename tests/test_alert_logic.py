@@ -286,3 +286,40 @@ class TestWorkerProcessing:
         assert success is False
         # Ensure session is still usable and not blocked in transaction
         assert db_session.is_active
+
+    def test_summary_email_with_failed_items(self, monkeypatch):
+        from app.notifier import send_dashboard_summary_email
+        from unittest.mock import MagicMock
+        import resend
+
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_key_123")
+        monkeypatch.setenv("ALERT_RECIPIENT_EMAIL", "test@example.com")
+        mock_send = MagicMock(return_value={"id": "email_123"})
+        monkeypatch.setattr(resend.Emails, "send", mock_send)
+
+        dummy_product = MagicMock()
+        dummy_product.id = 1
+        dummy_product.name = "Test Item"
+        dummy_product.url = "https://example.com/item"
+        dummy_product.current_price = 100.0
+        dummy_product.target_price = 90.0
+        dummy_product.currency = "Rs. "
+
+        failed_items = [
+            {
+                "id": 2,
+                "name": "Failing Store Item",
+                "url": "https://failing-store.com/item",
+                "current_price": 500.0,
+                "currency": "Rs. ",
+                "reason": "403 Forbidden - anti-bot challenge",
+            }
+        ]
+
+        result = send_dashboard_summary_email([dummy_product], failed_items=failed_items)
+        assert result is True
+        mock_send.assert_called_once()
+        call_args = mock_send.call_args[0][0]
+        assert "Scrape Issue" in call_args["subject"]
+        assert "Failing Store Item" in call_args["html"]
+        assert "403 Forbidden" in call_args["html"]

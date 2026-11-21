@@ -413,5 +413,6 @@ def trigger_worker_run(db: Session = Depends(get_db)):
     """Manually invoke the price scraping worker, check drops, and send summary email."""
     summary = run_worker()
     products = db.query(Product).order_by(Product.id.asc()).all()
-    email_sent = send_dashboard_summary_email(products)
+    failed_items = summary.get("failed_items", [])
+    email_sent = send_dashboard_summary_email(products, failed_items=failed_items)
     return {"status": "completed", "summary": summary, "email_sent": email_sent}
