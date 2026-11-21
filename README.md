@@ -40,17 +40,17 @@ A production-grade, modular Python application engineered to monitor e-commerce 
 
 1. **100% URL-First Tracking**:
    - Simply paste any product link. Title, price, and selector are automatically detected. No CSS selectors needed.
-2. **Site-Aware Dynamic Currency Detection**:
-   - Detects and formats prices based on each store's native currency (`$` for Amazon/eBay, `Rs. ` for Sri Lankan stores, `£` for British retailers).
+2. **Live Exchange Rate & Rupee Standardization**:
+   - Foreign currencies (such as USD `$` from Amazon) are automatically converted to Sri Lankan Rupees (`Rs. `) in real-time using live rates (~332 LKR/$). Kapruka and local stores are parsed directly in Sri Lankan Rupees (e.g. `Rs. 45,000.00`).
 3. **Interactive Forest & Gold Dashboard**:
-   - Clean single-page application with KPI metrics, search filtering, target editing, and interactive Chart.js price trend visualization.
-4. **Monitored Web Stores Quick Launcher**:
-   - Floating navigation menu in the bottom-left corner with pinned shortcuts to core stores (Amazon, Kapruka, BigDeals, Mo.lk, Pettah Kade, Ikman, Takas, eKade, OnlineKade, eShop.lk). Automatically adds new stores as you track products.
-5. **Dual Email Notification Engine**:
+   - Styled with a custom nature-inspired palette: `#15370D` (Forest Pine), `#728E6D` (Moss Sage), `#E5CD82` (Warm Sand Gold), and `#FFF2B4` (Soft Cream Butter). Includes KPI metrics, search filtering, target editing, and interactive Chart.js price trend visualization.
+4. **Database-Backed Web Stores Navigation**:
+   - Stores the 10 core monitored stores (Amazon, Kapruka, BigDeals, Mo.lk, Pettah Kade, Ikman, Takas, eKade, OnlineKade, eShop.lk) directly in PostgreSQL. Automatically registers and persists any new store domain whenever a new product is added.
+5. **Dual Email Notification Engine (Resend)**:
    - **Drop Alerts**: Instant notification when a product price drops at or below your target threshold (with anti-duplicate suppression).
-   - **Live Snapshot Email**: Dispatches a full status report table of all monitored items directly to your inbox whenever you click **"Check Prices Now"**.
-6. **Mobile-First Progressive UI**:
-   - Fully responsive design with brand favicon support. Can be added directly to your phone's home screen as a standalone web app.
+   - **Live Snapshot Email**: Dispatches a full status report table of all monitored items directly to your inbox (`ALERT_RECIPIENT_EMAIL`) whenever you click **"Check Prices Now"**.
+6. **Universal Cross-Browser Favicon & Mobile PWA**:
+   - Features standard binary `favicon.ico`, high-res `favicon.png`, `apple-touch-icon.png`, and `favicon.svg` for seamless icon rendering on Render, mobile browsers, and desktop tabs.
 
 ---
 
@@ -62,19 +62,22 @@ A production-grade, modular Python application engineered to monitor e-commerce 
 │       └── check_prices.yml      # GitHub Actions 6-hour cron and manual trigger
 ├── app/
 │   ├── __init__.py
-│   ├── database.py               # SQLAlchemy engine, session maker, Neon pooling
-│   ├── models.py                 # Product and PriceHistory SQLAlchemy ORM models
-│   ├── scraper.py                # Resilient scraper with auto-selectors & currency detection
-│   ├── notifier.py               # Resend email client with drop alerts & snapshot reports
+│   ├── database.py               # SQLAlchemy engine, session maker, Neon connection pooling
+│   ├── models.py                 # Product, PriceHistory, and WebStore SQLAlchemy ORM models
+│   ├── scraper.py                # Resilient scraper with live USD->LKR conversion & Kapruka priority
+│   ├── notifier.py               # Resend email client with drop alerts & on-demand snapshot reports
 │   ├── worker.py                 # Core evaluation loop with anti-spam alert logic
-│   ├── main.py                   # FastAPI REST API & dashboard routing
+│   ├── main.py                   # FastAPI REST API, store management & multi-format favicon routing
 │   └── static/
-│       ├── dashboard.html        # Interactive single-page web dashboard
-│       └── favicon.svg           # Brand SVG favicon
+│       ├── dashboard.html        # Interactive single-page web dashboard (Custom Forest & Gold palette)
+│       ├── favicon.ico           # Binary multi-size .ico favicon (16x16, 32x32, 48x48, 64x64)
+│       ├── favicon.png           # 192x192 PNG high-res favicon
+│       ├── apple-touch-icon.png  # 192x192 Apple touch icon for mobile home screens
+│       └── favicon.svg           # Brand vector SVG favicon
 ├── tests/
 │   ├── __init__.py
 │   ├── test_alert_logic.py       # Pytest suite for parser, suppression, and worker isolation
-│   └── test_api.py               # FastAPI endpoint integration tests
+│   └── test_api.py               # FastAPI endpoint integration tests including /stores and favicons
 ├── .env.example                  # Environment configuration template
 ├── render.yaml                   # 1-Click Render blueprint configuration
 ├── requirements.txt              # Production and testing Python dependencies

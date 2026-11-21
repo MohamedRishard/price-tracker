@@ -2,19 +2,23 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import urlparse
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.orm import Session
 
 from app.database import get_db, init_db
-from app.models import PriceHistory, Product
+from app.models import PriceHistory, Product, WebStore
 from app.notifier import send_dashboard_summary_email
 from app.scraper import fetch_product_price, inspect_product_page
 from app.worker import run_worker
 
 DASHBOARD_HTML_PATH = Path(__file__).parent / "static" / "dashboard.html"
-FAVICON_PATH = Path(__file__).parent / "static" / "favicon.svg"
+FAVICON_SVG_PATH = Path(__file__).parent / "static" / "favicon.svg"
+FAVICON_ICO_PATH = Path(__file__).parent / "static" / "favicon.ico"
+FAVICON_PNG_PATH = Path(__file__).parent / "static" / "favicon.png"
+TOUCH_ICON_PATH = Path(__file__).parent / "static" / "apple-touch-icon.png"
 
 
 @asynccontextmanager
@@ -108,6 +112,17 @@ class LinkTestResponse(BaseModel):
     message: str
 
 
+class WebStoreResponse(BaseModel):
+    id: int
+    name: str
+    domain: str
+    url: str
+    count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Endpoints ---
 
 
@@ -121,12 +136,60 @@ def serve_dashboard():
 
 
 @app.get("/favicon.ico", include_in_schema=False)
-@app.get("/favicon.svg", include_in_schema=False)
-def serve_favicon():
-    """Serve the application favicon."""
-    if FAVICON_PATH.exists():
-        return FileResponse(FAVICON_PATH, media_type="image/svg+xml")
+def serve_favicon_ico():
+    """Serve binary .ico favicon with SVG fallback."""
+    if FAVICON_ICO_PATH.exists():
+        return FileResponse(FAVICON_ICO_PATH, media_type="image/x-icon")
+    if FAVICON_SVG_PATH.exists():
+        return FileResponse(FAVICON_SVG_PATH, media_type="image/svg+xml")
     return HTMLResponse("", status_code=204)
+
+
+@app.get("/favicon.png", include_in_schema=False)
+def serve_favicon_png():
+    """Serve 192x192 PNG favicon."""
+    if FAVICON_PNG_PATH.exists():
+        return FileResponse(FAVICON_PNG_PATH, media_type="image/png")
+    return HTMLResponse("", status_code=204)
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+def serve_favicon_svg():
+    """Serve vector SVG favicon."""
+    if FAVICON_SVG_PATH.exists():
+        return FileResponse(FAVICON_SVG_PATH, media_type="image/svg+xml")
+    return HTMLResponse("", status_code=204)
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def serve_apple_touch_icon():
+    """Serve touch icon for mobile and home screen bookmarks."""
+    if TOUCH_ICON_PATH.exists():
+        return FileResponse(TOUCH_ICON_PATH, media_type="image/png")
+    return HTMLResponse("", status_code=204)
+
+
+@app.get("/stores", response_model=List[WebStoreResponse], tags=["Stores"])
+def list_stores(db: Session = Depends(get_db)):
+    """Retrieve all supported web stores from the database with active product count."""
+    stores = db.query(WebStore).order_by(WebStore.id.asc()).all()
+    products = db.query(Product).all()
+
+    results = []
+    for store in stores:
+        cnt = sum(1 for p in products if p.url and store.domain.lower() in p.url.lower())
+        results.append(
+            WebStoreResponse(
+                id=store.id,
+                name=store.name,
+                domain=store.domain,
+                url=store.url,
+                count=cnt,
+                created_at=store.created_at or datetime.utcnow(),
+            )
+        )
+    return results
 
 
 @app.post("/api/test-link", response_model=LinkTestResponse, tags=["Scraper"])
@@ -186,6 +249,34 @@ def create_product(product_in: ProductCreate, db: Session = Depends(get_db)):
     db.add(product)
     db.commit()
     db.refresh(product)
+
+    # Auto-register store in database if new domain
+    try:
+        parsed = urlparse(product_in.url)
+        netloc = parsed.netloc.lower()
+        clean_domain = netloc[4:] if netloc.startswith("www.") else netloc
+        if clean_domain:
+            existing_store = (
+                db.query(WebStore)
+                .filter(WebStore.domain.ilike(f"%{clean_domain}%"))
+                .first()
+            )
+            if not existing_store:
+                parts = clean_domain.split(".")
+                brand = (
+                    parts[0]
+                    if parts[0] not in ("buy", "shop", "store", "m")
+                    else (parts[1] if len(parts) > 1 else parts[0])
+                )
+                store_name = brand.capitalize()
+                store_url = f"{parsed.scheme or 'https'}://{netloc}"
+                new_store = WebStore(name=store_name, domain=clean_domain, url=store_url)
+                db.add(new_store)
+                db.commit()
+    except Exception:
+        # Avoid failing product creation if auto-store registration has an issue
+        db.rollback()
+
     return product
 
 

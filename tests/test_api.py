@@ -104,3 +104,39 @@ def test_create_and_get_product(client):
     # 6. Verify deleted
     get_again = client.get(f"/products/{product_id}")
     assert get_again.status_code == 404
+
+
+def test_stores_endpoint_and_auto_registration(client):
+    # 1. Stores list initially empty in test database
+    stores_res = client.get("/stores")
+    assert stores_res.status_code == 200
+    assert stores_res.json() == []
+
+    # 2. Creating a product with a new domain auto-registers the store
+    payload = {
+        "name": "Kapruka Party Speaker",
+        "url": "https://www.kapruka.com/buyonline/speaker/123",
+        "css_selector": "auto",
+        "target_price": 40000.0,
+    }
+    create_res = client.post("/products", json=payload)
+    assert create_res.status_code == 201
+
+    # 3. Check /stores now includes kapruka.com with count 1
+    stores_res2 = client.get("/stores")
+    assert stores_res2.status_code == 200
+    stores = stores_res2.json()
+    assert len(stores) == 1
+    assert "kapruka" in stores[0]["domain"].lower()
+    assert stores[0]["count"] == 1
+
+
+def test_favicon_endpoints(client):
+    res_ico = client.get("/favicon.ico")
+    assert res_ico.status_code == 200
+
+    res_png = client.get("/favicon.png")
+    assert res_png.status_code == 200
+
+    res_svg = client.get("/favicon.svg")
+    assert res_svg.status_code == 200

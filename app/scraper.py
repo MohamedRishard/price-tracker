@@ -33,6 +33,8 @@ DEFAULT_HEADERS = {
 
 AUTO_PRICE_SELECTORS = [
     # 1. Dedicated Sale / Deal Price elements (highest priority discounted prices)
+    "#pricelbl",
+    ".priceM",
     ".sell-price",
     ".selling-price",
     ".special-price",
@@ -41,17 +43,15 @@ AUTO_PRICE_SELECTORS = [
     ".price-current",
     ".actual-price",
     ".detail-price-con .sell-price",
-    # 2. Canonical OpenGraph / Store Microdata (authoritative main product prices)
-    "meta[property='og:price:amount']",
-    "meta[property='product:price:amount']",
-    "[itemprop='price']",
-    # 3. Amazon & Kapruka Leaf Selectors (clean single-amount text)
+    # 2. Dedicated Amazon & Store Leaf Elements (clean single-amount text)
     ".a-price .a-offscreen",
     "span.a-offscreen",
     "#priceblock_ourprice",
     "#priceblock_dealprice",
-    "#pricelbl",
-    ".priceM",
+    # 3. Canonical OpenGraph / Store Microdata (authoritative main product prices)
+    "meta[property='og:price:amount']",
+    "meta[property='product:price:amount']",
+    "[itemprop='price']",
     # 4. WooCommerce Main Product Price Elements
     ".entry-summary .price",
     ".summary .price",
@@ -320,6 +320,54 @@ def detect_currency(soup: BeautifulSoup, raw_price_text: str = "", url: str = ""
     return "Rs. "
 
 
+def get_usd_to_lkr_rate() -> float:
+    """Fetch live USD to LKR conversion rate with reliable fallback."""
+    try:
+        resp = httpx.get("https://open.er-api.com/v6/latest/USD", timeout=3.5)
+        if resp.status_code == 200:
+            data = resp.json()
+            rate = data.get("rates", {}).get("LKR")
+            if rate and rate > 100:
+                return float(rate)
+    except Exception:
+        pass
+    return 332.64  # Standard current LKR conversion rate per 1 USD
+
+
+def convert_foreign_price_to_lkr(price: float, currency_sym: str, raw_text: str = "", url: str = "") -> Tuple[float, str]:
+    """
+    If a price is in USD ($) or other foreign currency, convert it to Sri Lankan Rupees (Rs.)
+    based on the current live conversion rate so all items are monitored uniformly in Rs.
+    """
+    curr = currency_sym.strip()
+    u = (url or "").lower()
+    txt = (raw_text or "").lower()
+
+    # If the price is already in LKR / Rs. (e.g., Sri Lankan localized Amazon or regional stores)
+    if "lkr" in txt or "rs" in txt or curr == "Rs. ":
+        return round(price, 2), "Rs. "
+    if "amazon." in u and price > 1000:
+        return round(price, 2), "Rs. "
+
+    if curr == "$" or "$" in txt or "amazon." in u or "ebay." in u:
+        rate = get_usd_to_lkr_rate()
+        converted = round(price * rate, 2)
+        logger.info("Converted foreign price $%.2f to Rs. %.2f (rate: %.2f)", price, converted, rate)
+        return converted, "Rs. "
+
+    if curr == "£" or "£" in txt:
+        rate = get_usd_to_lkr_rate() * 1.28
+        converted = round(price * rate, 2)
+        return converted, "Rs. "
+
+    if curr == "€" or "€" in txt:
+        rate = get_usd_to_lkr_rate() * 1.05
+        converted = round(price * rate, 2)
+        return converted, "Rs. "
+
+    return round(price, 2), "Rs. "
+
+
 def fetch_html_content(url: str, timeout: float = 15.0) -> Tuple[Optional[str], Optional[int]]:
     """
     Fetch webpage HTML using httpx, with automatic fallback to curl_cffi for bot-protected sites.
@@ -395,7 +443,9 @@ def fetch_product_price(
 
             price, _ = extract_price_and_selector(soup, preferred_selector=css_selector)
             if price is not None:
-                return price
+                raw_curr = detect_currency(soup, url=url)
+                price_lkr, _ = convert_foreign_price_to_lkr(price, raw_curr, url=url)
+                return price_lkr
 
             logger.warning(
                 "Attempt %d/%d: Selector '%s' not matched on %s",
@@ -421,6 +471,7 @@ def inspect_product_page(
     """
     Inspect a product page from a URL alone.
     Auto-detects product title, price, and selector.
+    Converts USD ($) or other foreign currencies to Rs. automatically.
     """
     html, status_code = fetch_html_content(url, timeout=timeout)
     if not html:
@@ -431,6 +482,7 @@ def inspect_product_page(
             "success": False,
             "name": "Unknown Product",
             "price": None,
+            "currency": "Rs. ",
             "selector": css_selector or "auto",
             "message": msg,
         }
@@ -442,23 +494,25 @@ def inspect_product_page(
 
     title = extract_product_title(soup)
     price, matched_selector = extract_price_and_selector(soup, preferred_selector=css_selector)
-    currency = detect_currency(soup, url=url)
+    raw_curr = detect_currency(soup, url=url)
 
     if price is not None:
+        price_lkr, currency = convert_foreign_price_to_lkr(price, raw_curr, url=url)
+        orig_notice = f" (Converted from ${price:,.2f})" if raw_curr == "$" and price != price_lkr else ""
         return {
             "success": True,
             "name": title,
-            "price": price,
+            "price": price_lkr,
             "currency": currency,
             "selector": matched_selector,
-            "message": f"Successfully detected price: {currency}{price:,.2f}",
+            "message": f"Successfully detected price: {currency}{price_lkr:,.2f}{orig_notice}",
         }
 
     return {
         "success": False,
         "name": title,
         "price": None,
-        "currency": currency,
+        "currency": "Rs. ",
         "selector": css_selector or "auto",
         "message": "Page loaded, but could not automatically detect price element.",
     }

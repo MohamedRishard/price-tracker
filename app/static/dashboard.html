@@ -6,8 +6,10 @@
   <title>PriceDrop Radar &bull; Production Backend Dashboard</title>
   
   <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
   <!-- Tailwind CSS with Custom Palette Configuration -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -55,6 +57,28 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <!-- Web Stores Dropdown Button -->
+        <div class="relative">
+          <button id="storesDropdownBtn" onclick="toggleStoresMenu(event)" class="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-lg bg-white hover:bg-cream/40 text-forest border border-sage/30 shadow-xs transition duration-150">
+            <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <span>Web Stores</span>
+            <span id="storeCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-cream text-forest border border-gold/50">10</span>
+            <svg class="w-3.5 h-3.5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <!-- Stores Dropdown Menu -->
+          <div id="storesMenu" class="hidden absolute right-0 mt-2 w-72 rounded-2xl bg-white shadow-xl border border-sage/20 p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div class="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-sage border-b border-sage/15 mb-1.5 flex justify-between items-center">
+              <span>Supported Stores</span>
+              <span class="text-[10px] lowercase text-slate-400 font-normal">persisted in DB</span>
+            </div>
+            <div id="storesList" class="space-y-1 max-h-80 overflow-y-auto">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
         <!-- Check Prices Now (Triggers Scraping + Email Snapshot) -->
         <button id="btnRunWorker" onclick="triggerWorkerRun()" class="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold rounded-lg bg-cream/70 hover:bg-cream text-forest transition duration-150 border border-gold/60 shadow-xs">
           <svg id="workerIcon" class="w-4 h-4 text-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -364,16 +388,12 @@
       { origin: 'https://www.eshop.lk', host: 'eshop.lk', name: 'eShop.lk' }
     ];
 
-    // Dynamic Currency Detection: uses product.currency if available, else detects from store context
+    // All prices are converted and displayed uniformly in Sri Lankan Rupees (Rs. )
     function getCurrencySymbol(item) {
       if (typeof item === 'object' && item !== null && item.currency) {
-        return item.currency;
+        const c = item.currency.trim();
+        return c.endsWith('.') ? c + ' ' : c + '. ';
       }
-      const url = typeof item === 'string' ? item : (item && item.url ? item.url : '');
-      const lower = (url || '').toLowerCase();
-      if (lower.includes('amazon') || lower.includes('ebay')) return '$';
-      if (lower.includes('toscrape') || lower.includes('.uk')) return '£';
-      if (lower.includes('.lk') || lower.includes('ikman') || lower.includes('kapruka') || lower.includes('daraz')) return 'Rs. ';
       return 'Rs. ';
     }
 
@@ -495,72 +515,53 @@
       }).join('');
     }
 
-    // Fixed 10 Stores Navigation + Dynamically Appending New Stores
-    function renderStoresMenu() {
+    // Render Supported Web Stores (Fetched dynamically from Database)
+    async function renderStoresMenu() {
       const container = document.getElementById('storesList');
       const badge = document.getElementById('storeCountBadge');
-      
-      const storeMap = new Map();
+      if (!container) return;
 
-      // 1. Populate fixed 10 core stores
-      FIXED_CORE_STORES.forEach(s => {
-        storeMap.set(s.origin, {
-          origin: s.origin,
-          host: s.host,
-          name: s.name,
-          count: 0
-        });
-      });
+      try {
+        const res = await fetch('/stores');
+        if (!res.ok) throw new Error('Failed to load stores');
+        const stores = await res.json();
 
-      // 2. Count active tracked items and dynamically add newly discovered stores
-      products.forEach(p => {
-        try {
-          if (!p.url) return;
-          const u = new URL(p.url);
-          // Ignore books.toscrape
-          if (u.hostname.includes('toscrape')) return;
+        if (badge) badge.innerText = stores.length;
 
-          const origin = u.origin;
-          const host = u.hostname.replace(/^www\./, '');
-
-          if (storeMap.has(origin)) {
-            storeMap.get(origin).count++;
-          } else {
-            // New store dynamically added!
-            storeMap.set(origin, {
-              origin: origin,
-              host: host,
-              name: host,
-              count: 1
-            });
-          }
-        } catch (e) {}
-      });
-
-      badge.innerText = storeMap.size;
-
-      container.innerHTML = Array.from(storeMap.values()).map(store => `
-        <a href="${store.origin}" target="_blank" class="flex items-center justify-between p-2 rounded-xl hover:bg-bgsoft transition border border-transparent hover:border-sage/20 group">
-          <div class="flex items-center gap-2.5">
-            <div class="w-6 h-6 rounded-lg bg-cream flex items-center justify-center text-xs font-bold text-forest uppercase border border-gold/40">
-              ${store.host.charAt(0)}
+        container.innerHTML = stores.map(store => `
+          <a href="${store.url}" target="_blank" class="flex items-center justify-between p-2 rounded-xl hover:bg-bgsoft transition border border-transparent hover:border-sage/20 group">
+            <div class="flex items-center gap-2.5">
+              <div class="w-6 h-6 rounded-lg bg-cream flex items-center justify-center text-xs font-bold text-forest uppercase border border-gold/40">
+                ${store.name.charAt(0)}
+              </div>
+              <div>
+                <div class="text-xs font-bold text-forest group-hover:text-sage transition">${escapeHtml(store.name)}</div>
+                <div class="text-[10px] text-slate-400">${store.count} item${store.count !== 1 ? 's' : ''} tracked</div>
+              </div>
             </div>
-            <div>
-              <div class="text-xs font-bold text-forest group-hover:text-sage transition">${store.name || store.host}</div>
-              <div class="text-[10px] text-slate-400">${store.count} item${store.count !== 1 ? 's' : ''} tracked</div>
-            </div>
-          </div>
-          <svg class="w-3.5 h-3.5 text-sage group-hover:text-forest transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-          </svg>
-        </a>
-      `).join('');
+            <svg class="w-3.5 h-3.5 text-sage group-hover:text-forest transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </a>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load web stores:', err);
+      }
     }
 
-    function toggleStoresMenu() {
+    function toggleStoresMenu(event) {
+      if (event) event.stopPropagation();
       const menu = document.getElementById('storesMenu');
-      menu.classList.toggle('hidden');
+      if (menu) menu.classList.toggle('hidden');
     }
+
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('storesMenu');
+      const btn = document.getElementById('storesDropdownBtn');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+        menu.classList.add('hidden');
+      }
+    });
 
     function getDomainName(url) {
       try {
@@ -798,7 +799,7 @@
       }
     }
 
-    function renderHistoryChart(history, targetPrice, sym = '$') {
+    function renderHistoryChart(history, targetPrice, sym = 'Rs. ') {
       const ctx = document.getElementById('historyChart').getContext('2d');
       if (chartInstance) chartInstance.destroy();
 
@@ -858,7 +859,7 @@
       });
     }
 
-    function renderHistoryTable(history, sym = '$') {
+    function renderHistoryTable(history, sym = 'Rs. ') {
       const tbody = document.getElementById('historyTableBody');
       if (!history.length) {
         tbody.innerHTML = '<tr><td colspan="2" class="p-3 text-center text-slate-400">No price history recorded yet.</td></tr>';
